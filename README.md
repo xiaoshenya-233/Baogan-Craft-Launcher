@@ -1,6 +1,7 @@
 # Baogan Craft Launcher
 
-基于 Flutter 的 Minecraft 风格启动器界面原型，适配桌面与窄屏布局。包含主页、导航、游戏版本选择、启动状态演示和冒险灵感卡片。界面默认使用思源黑体（Source Han Sans SC），字体文件内置于 `assets/fonts/SourceHanSansSC-Regular.otf`。
+基于 Flutter 的 Minecraft 风格启动器界面原型，该项目使用Deepseek辅助开发，适配桌面与窄屏布局。包含主页、导航、游戏版本选择、启动状态演示和冒险灵感卡片。界面默认使用思源黑体（Source Han Sans SC），字体文件内置于 `assets/fonts/SourceHanSansSC-Regular.otf`。
+
 *对于中国大陆地区，为响应相关法律法规暂时不开放下载客户端功能，如果想使用下载客户端功能请坐飞机出国
 ## 运行
 
