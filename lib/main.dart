@@ -1,0 +1,185 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
+
+import 'core/launcher_log.dart';
+import 'core/network_detector.dart';
+import 'core/path_manager.dart';
+import 'pages/launcher/launcher_app.dart';
+import 'pages/launcher_home_page.dart';
+import 'services/launcher/authlib_injector.dart';
+
+export 'pages/launcher/launcher_app.dart';
+export 'pages/launcher_home_page.dart';
+export 'services/download/download_service.dart';
+export 'services/installer/game_installer.dart';
+export 'services/installer/version_models.dart';
+export 'services/java/java_service.dart';
+export 'services/launcher/game_launcher.dart';
+export 'services/network/api_service.dart';
+export 'services/network/auth_service.dart';
+export 'services/translation/database_service.dart';
+export 'services/translation/mod_search_service.dart';
+
+Future<void> main(List<String> args) async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final status = await const NetworkDetector().checkRegion();
+  if (status == RegionStatus.unknown) {
+    runApp(NetworkCheckApp(args: args));
+    return;
+  }
+  isDownloadLocked = status == RegionStatus.domestic;
+  await _startLauncher(args);
+}
+
+Future<bool> _retryNetworkAndStart(List<String> args) async {
+  final status = await const NetworkDetector().checkRegion();
+  if (status == RegionStatus.unknown) return false;
+  isDownloadLocked = status == RegionStatus.domestic;
+  await _startLauncher(args);
+  return true;
+}
+
+Future<void> _startLauncher(List<String> args) async {
+  final debugLogPath = debugLogWindowPathFromArgs(args);
+  if (debugLogPath != null) {
+    runApp(DebugLogWindowApp(logPath: debugLogPath));
+    return;
+  }
+
+  await PathManager.instance.load();
+  if (PathManager.instance.isConfigured) {
+    // Release the bundled authlib-injector in the background; failures are
+    // reported later when a third-party account is actually launched.
+    unawaited(AuthlibInjector.ensureExtracted());
+  }
+  // 在用户选定根目录之前，不初始化日志、数据库或任何会写本地缓存的模块。
+  FlutterError.onError = (details) {
+    LauncherLog.error(
+      'Flutter',
+      '${details.exceptionAsString()}\n${details.stack ?? ''}',
+    );
+    FlutterError.presentError(details);
+  };
+  ui.PlatformDispatcher.instance.onError = (error, stackTrace) {
+    LauncherLog.error('Unhandled', '$error', stackTrace);
+    return true;
+  };
+  if (Platform.isWindows) {
+    await windowManager.ensureInitialized();
+    await windowManager.waitUntilReadyToShow(
+      const WindowOptions(titleBarStyle: TitleBarStyle.hidden),
+      () async {
+        await windowManager.show();
+        await windowManager.focus();
+      },
+    );
+  }
+  runApp(const BlockLauncherApp());
+}
+
+class NetworkCheckApp extends StatefulWidget {
+  const NetworkCheckApp({super.key, required this.args});
+
+  final List<String> args;
+
+  @override
+  State<NetworkCheckApp> createState() => _NetworkCheckAppState();
+}
+
+class _NetworkCheckAppState extends State<NetworkCheckApp> {
+  bool _checking = false;
+  String? _error;
+
+  Future<void> _retry() async {
+    if (_checking) return;
+    setState(() {
+      _checking = true;
+      _error = null;
+    });
+    try {
+      final started = await _retryNetworkAndStart(widget.args);
+      if (!mounted) return;
+      if (!started) {
+        setState(() {
+          _checking = false;
+          _error = '网络检测仍然失败，请检查网络或系统代理设置后重试。';
+        });
+      }
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _checking = false;
+        _error = '启动失败：$error';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.wifi_off_rounded,
+                      size: 52,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '网络环境检测失败',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '无法确认当前网络环境，下载功能暂不可用。'
+                      '请检查网络或系统代理设置后重试。',
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: colorScheme.error),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      onPressed: _checking ? null : _retry,
+                      icon: _checking
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh_rounded),
+                      label: Text(_checking ? '正在检测…' : '重试'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
