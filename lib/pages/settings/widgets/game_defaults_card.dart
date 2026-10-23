@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/preferences_store.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../services/java/java_service.dart';
 import '../../launcher/launcher_palette.dart';
 
@@ -39,6 +40,7 @@ class _GameDefaultsCardState extends State<GameDefaultsCard> {
   @override
   Widget build(BuildContext context) {
     final muted = widget.palette.muted;
+    final l10n = AppLocalizations.of(context)!;
     final stored = widget.selectedExecutable?.trim() ?? '';
     final current = stored.isEmpty ? PreferencesStore.autoJavaValue : stored;
     final isKnown = widget.runtimes.any(
@@ -48,7 +50,7 @@ class _GameDefaultsCardState extends State<GameDefaultsCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '这些默认值用于新建客户端；已单独配置的客户端仍使用各自的设置。',
+          l10n.settingsDefaultsHint,
           style: TextStyle(fontSize: 11, color: muted),
         ),
         const SizedBox(height: 12),
@@ -56,15 +58,18 @@ class _GameDefaultsCardState extends State<GameDefaultsCard> {
           key: ValueKey('default-java-$current'),
           initialValue: current,
           isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: '默认 Java',
+          decoration: InputDecoration(
+            labelText: l10n.settingsDefaultJava,
             isDense: true,
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
           ),
           items: [
-            const DropdownMenuItem<String>(
+            DropdownMenuItem<String>(
               value: PreferencesStore.autoJavaValue,
-              child: Text('根据游戏版本自动设定', style: TextStyle(fontSize: 12)),
+              child: Text(
+                l10n.settingsJavaAutoChoice,
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
             if (!isKnown && current != PreferencesStore.autoJavaValue)
               DropdownMenuItem<String>(
@@ -93,16 +98,19 @@ class _GameDefaultsCardState extends State<GameDefaultsCard> {
         ),
         const SizedBox(height: 6),
         Text(
-          '选择「根据游戏版本自动设定」时，启动器会按客户端声明的 Java 版本自动匹配。',
+          l10n.settingsJavaAutoHint,
           style: TextStyle(fontSize: 10.5, color: muted),
         ),
         const SizedBox(height: 16),
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                '默认内存分配',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                l10n.settingsDefaultMemory,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             Text(
@@ -120,7 +128,7 @@ class _GameDefaultsCardState extends State<GameDefaultsCard> {
           onChanged: (value) => setState(() => _memoryGb = value),
         ),
         Text(
-          '仅用于界面占位，尚未写入启动参数。',
+          l10n.settingsMemoryPlaceholder,
           style: TextStyle(fontSize: 10, color: muted),
         ),
       ],

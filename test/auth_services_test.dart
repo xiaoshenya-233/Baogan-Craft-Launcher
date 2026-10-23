@@ -95,18 +95,44 @@ void main() {
     );
   });
 
-  test('Microsoft device-code request rejects an empty client id', () async {
-    const service = MicrosoftAuthService();
-    await expectLater(
-      service.requestDeviceCode(' '),
-      throwsA(isA<FormatException>()),
-    );
-  });
-
   test('auth mode labels remain stable for persisted names', () {
     expect(AuthMode.offline.name, 'offline');
     expect(AuthMode.offline.label, '离线模式');
     expect(AuthMode.microsoft.name, 'microsoft');
     expect(AuthMode.thirdParty.name, 'thirdParty');
   });
+
+  test('local profile login stays offline and never reuses a real token', () async {
+    final directory = await Directory.systemTemp.createTemp('offline_profile');
+    addTearDown(() => directory.delete(recursive: true));
+    final service = MinecraftAuthService(
+      minecraftPath: directory.path,
+      httpClient: const _NetworkBlockingAuthClient(),
+    );
+
+    final identity = await service.authenticateOffline('LocalPlayer');
+
+    expect(identity.name, 'LocalPlayer');
+    expect(identity.uuid, OfflineProfileStore.uuidForName('LocalPlayer'));
+    expect(identity.accessToken, '0');
+    expect(identity.userType, 'legacy');
+    expect(identity.xuid, isEmpty);
+  });
+}
+
+/// Proves the local-profile path performs no HTTP work at all.
+class _NetworkBlockingAuthClient extends AuthHttpClient {
+  const _NetworkBlockingAuthClient();
+
+  @override
+  Future<Map<String, dynamic>> requestJson(
+    Uri uri, {
+    String method = 'GET',
+    Map<String, dynamic>? body,
+    Map<String, String>? form,
+    String? bearerToken,
+    bool acceptOAuthPending = false,
+  }) {
+    fail('local profile login must not reach the network: $uri');
+  }
 }

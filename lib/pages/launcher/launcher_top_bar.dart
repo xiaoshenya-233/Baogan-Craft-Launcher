@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../widgets/launcher/launcher_common.dart';
 
 class LauncherTopBar extends StatelessWidget {
@@ -28,6 +29,7 @@ class LauncherTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = isDark;
+    final l10n = AppLocalizations.of(context)!;
     final windowButtonColor = dark ? Colors.white : const Color(0xFF26351F);
     return SizedBox(
       height: 72,
@@ -86,13 +88,15 @@ class LauncherTopBar extends StatelessWidget {
               child: Row(
                 children: [
                   _windowControlButton(
-                    tooltip: '最小化',
+                    tooltip: l10n.windowMinimize,
                     icon: Icons.minimize_rounded,
                     onPressed: onMinimize,
                     color: windowButtonColor,
                   ),
                   _windowControlButton(
-                    tooltip: isMaximized ? '还原' : '最大化',
+                    tooltip: isMaximized
+                        ? l10n.windowRestore
+                        : l10n.windowMaximize,
                     icon: isMaximized
                         ? Icons.filter_none_rounded
                         : Icons.crop_square_rounded,
@@ -100,7 +104,7 @@ class LauncherTopBar extends StatelessWidget {
                     color: windowButtonColor,
                   ),
                   _windowControlButton(
-                    tooltip: '关闭',
+                    tooltip: l10n.windowClose,
                     icon: Icons.close_rounded,
                     onPressed: onClose,
                     color: windowButtonColor,

@@ -432,6 +432,7 @@ class ResourceVersionPickerSheetState
   Map<String, List<String>> _groups = const {};
   String? _selectedMajor;
   String? _selectedMinor;
+  List<_ResourceVersionRow> _rows = const [];
 
   @override
   void initState() {
@@ -444,6 +445,7 @@ class ResourceVersionPickerSheetState
     setState(() {
       _loading = true;
       _loadError = null;
+      _rows = const [];
     });
     try {
       final project = await widget.loadProject();
@@ -469,14 +471,53 @@ class ResourceVersionPickerSheetState
             : allResourceLoaderKey;
         _loading = false;
         _loadError = gameVersions.isEmpty ? '该资源没有可用于选择的 Minecraft 版本。' : null;
+        _refreshRows();
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
+        _rows = const [];
         _loadError = '获取版本列表失败：$error';
       });
     }
+  }
+
+  /// Builds the display rows once per filter change.
+  ///
+  /// Filtering, sorting and string joins for hundreds of versions must not run
+  /// inside `itemBuilder`, otherwise every scroll frame repeats that work.
+  void _refreshRows() {
+    final project = _loadedProject;
+    final minor = _selectedMinor;
+    if (project == null || minor == null) {
+      _rows = const [];
+      return;
+    }
+    final versions = widget.versionsFor(
+      project,
+      minor,
+      _selectedLoader == allResourceLoaderKey ? null : _selectedLoader,
+    );
+    _rows = versions.map(_rowFor).toList(growable: false);
+  }
+
+  _ResourceVersionRow _rowFor(ModrinthVersion version) {
+    final title = version.name.trim().isEmpty
+        ? version.files.firstOrNull?.filename ?? '未命名版本'
+        : version.name;
+    final loaderLabel = version.loaders.isEmpty
+        ? '加载器未标注'
+        : version.loaders.map(resourceLoaderLabel).join(' / ');
+    final subtitle = version.gameVersions.isEmpty
+        ? loaderLabel
+        : '${version.gameVersions.join(' · ')} · $loaderLabel';
+    return _ResourceVersionRow(
+      version: version,
+      title: title,
+      subtitle: subtitle,
+      loader: _loaderFor(version),
+    );
   }
 
   String? _loaderFor(ModrinthVersion version) {
@@ -604,6 +645,7 @@ class ResourceVersionPickerSheetState
                       setState(() {
                         _selectedMajor = major;
                         _selectedMinor = _groups[major]!.firstOrNull;
+                        _refreshRows();
                       });
                     },
                   ),
@@ -632,7 +674,10 @@ class ResourceVersionPickerSheetState
                       showCheckmark: false,
                       visualDensity: VisualDensity.compact,
                       onSelected: (_) {
-                        setState(() => _selectedMinor = minor);
+                        setState(() {
+                          _selectedMinor = minor;
+                          _refreshRows();
+                        });
                       },
                     ),
                   )
@@ -658,7 +703,10 @@ class ResourceVersionPickerSheetState
                   .toList(),
               onChanged: (value) {
                 if (value == null) return;
-                setState(() => _selectedLoader = value);
+                setState(() {
+                  _selectedLoader = value;
+                  _refreshRows();
+                });
               },
             ),
           ],
@@ -674,13 +722,7 @@ class ResourceVersionPickerSheetState
         child: Text('请选择具体版本。', style: TextStyle(color: widget.mutedColor)),
       );
     }
-
-    final versions = widget.versionsFor(
-      project,
-      _selectedMinor!,
-      _selectedLoader == allResourceLoaderKey ? null : _selectedLoader,
-    );
-    if (versions.isEmpty) {
+    if (_rows.isEmpty) {
       return Center(
         child: Text(
           '当前版本和加载器没有可下载文件。',
@@ -689,41 +731,68 @@ class ResourceVersionPickerSheetState
       );
     }
 
-    return ListView.separated(
+    // `ListView.builder` + fixed extent builds only the visible rows. The parent
+    // `Expanded` supplies the bounded height inside the fixed-height sheet, so
+    // the list scrolls on its own (never shrinkWrap + NeverScrollablePhysics,
+    // which would measure every version up front).
+    return ListView.builder(
+      key: const ValueKey('resource-version-list'),
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-      itemCount: versions.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 6),
+      itemCount: _rows.length,
+      itemExtent: 64,
       itemBuilder: (context, index) {
-        final version = versions[index];
-        final loader = _loaderFor(version);
-        return Material(
-          color: widget.accentColor,
-          borderRadius: BorderRadius.circular(10),
-          child: ListTile(
-            title: Text(
-              version.name.isEmpty
-                  ? version.files.firstOrNull?.filename ?? '未命名版本'
-                  : version.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(
-              '${version.gameVersions.join(' · ')} · '
-              '${version.loaders.isEmpty ? '加载器未标注' : version.loaders.map(resourceLoaderLabel).join(' / ')}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () {
-              Navigator.pop(
-                context,
-                ResourceVersionChoice(
-                  project: project,
-                  version: version,
-                  loader: loader,
+        final row = _rows[index];
+        return RepaintBoundary(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Material(
+              color: widget.accentColor,
+              borderRadius: BorderRadius.circular(10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () {
+                  Navigator.pop(
+                    context,
+                    ResourceVersionChoice(
+                      project: project,
+                      version: row.version,
+                      loader: row.loader,
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              row.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              row.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: widget.mutedColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded),
+                    ],
+                  ),
                 ),
-              );
-            },
+              ),
+            ),
           ),
         );
       },
@@ -748,4 +817,22 @@ class ResourceVersionPickerSheetState
       ),
     );
   }
+}
+
+/// Precomputed row of the resource version list.
+///
+/// Title/subtitle strings are built once when filters change so `itemBuilder`
+/// never joins game versions or maps loader labels while scrolling.
+class _ResourceVersionRow {
+  const _ResourceVersionRow({
+    required this.version,
+    required this.title,
+    required this.subtitle,
+    required this.loader,
+  });
+
+  final ModrinthVersion version;
+  final String title;
+  final String subtitle;
+  final String? loader;
 }

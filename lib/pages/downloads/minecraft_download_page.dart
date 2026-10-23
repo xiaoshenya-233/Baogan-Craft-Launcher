@@ -53,6 +53,17 @@ class _MinecraftDownloadPageState extends State<MinecraftDownloadPage> {
   LauncherPalette get palette => widget.palette;
 
   static const _green = Color(0xFF8BC34A);
+
+  /// Height of the virtualized Minecraft version list.
+  ///
+  /// The catalog can hold ~700 entries, so the list gets a fixed viewport and
+  /// scrolls on its own instead of being expanded inside the page scroll view.
+  static const double _minecraftVersionListHeight = 240;
+
+  MinecraftReleaseCategory? _cachedReleaseCategory;
+  List<MinecraftCatalogVersion>? _cachedCatalogSource;
+  List<MinecraftCatalogVersion> _categoryVersions = const [];
+  Set<String> _categoryVersionIds = const {};
   bool get _usesDarkPalette => widget.isDark;
   bool get isDownloadLocked => widget.isDownloadLocked;
   String get _minecraftPath => widget.minecraftPath;
@@ -165,22 +176,80 @@ class _MinecraftDownloadPageState extends State<MinecraftDownloadPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) => _buildMinecraftDownload();
-
-  Widget _buildMinecraftDownload() {
-    final availableVersions = _minecraftCatalog
+  /// Filters the catalog once per catalog/category change.
+  ///
+  /// Filtering ~700 entries on every rebuild would run on the UI thread, so the
+  /// result and the id set used by the selection check are memoized here.
+  List<MinecraftCatalogVersion> _versionsForCurrentCategory() {
+    final catalog = _minecraftCatalog;
+    if (_cachedReleaseCategory == _minecraftReleaseCategory &&
+        identical(_cachedCatalogSource, catalog)) {
+      return _categoryVersions;
+    }
+    final versions = catalog
         .where(
           (version) =>
               MinecraftReleaseCategory.forVersion(version) ==
               _minecraftReleaseCategory,
         )
-        .toList();
-    final availableVersionIds = availableVersions
-        .map((version) => version.id)
-        .toList();
-    final selectedVersion =
-        availableVersionIds.contains(_selectedMinecraftVersion)
+        .toList(growable: false);
+    _cachedReleaseCategory = _minecraftReleaseCategory;
+    _cachedCatalogSource = catalog;
+    _categoryVersions = versions;
+    _categoryVersionIds = versions.map((version) => version.id).toSet();
+    return _categoryVersions;
+  }
+
+  /// Virtualized version list with a fixed viewport.
+  ///
+  /// A `ListView.builder` inside a bounded [SizedBox] builds only the visible
+  /// rows, so a 700 entry catalog no longer freezes the first frame. `shrinkWrap`
+  /// and `NeverScrollableScrollPhysics` are deliberately avoided because they
+  /// would force every row to be measured.
+  Widget _buildMinecraftVersionList(
+    List<MinecraftCatalogVersion> versions,
+    String? selectedVersion,
+  ) {
+    return SizedBox(
+      height: _minecraftVersionListHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _usesDarkPalette
+              ? const Color(0x33000000)
+              : const Color(0xFFF4F7F0),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _panelBorderColor),
+        ),
+        child: ListView.builder(
+          key: const ValueKey('minecraft-version-list'),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+          itemCount: versions.length,
+          itemExtent: 40,
+          itemBuilder: (context, index) {
+            final version = versions[index];
+            return RepaintBoundary(
+              child: _MinecraftVersionRow(
+                versionId: version.id,
+                selected: version.id == selectedVersion,
+                dark: _usesDarkPalette,
+                selectedColor: _selectedSurfaceColor,
+                foregroundColor: _selectedForegroundColor,
+                mutedColor: _muted,
+                onTap: () => _selectMinecraftVersion(version.id),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => _buildMinecraftDownload();
+
+  Widget _buildMinecraftDownload() {
+    final availableVersions = _versionsForCurrentCategory();
+    final selectedVersion = _categoryVersionIds.contains(_selectedMinecraftVersion)
         ? _selectedMinecraftVersion
         : null;
     return LayoutBuilder(
@@ -327,19 +396,9 @@ class _MinecraftDownloadPageState extends State<MinecraftDownloadPage> {
                             style: TextStyle(fontSize: 11, color: _muted),
                           )
                         else
-                          DropdownButtonFormField<String>(
-                            key: ValueKey(_minecraftReleaseCategory),
-                            initialValue: selectedVersion,
-                            decoration: _downloadDropdownDecoration(),
-                            items: availableVersions
-                                .map(
-                                  (version) => DropdownMenuItem(
-                                    value: version.id,
-                                    child: Text(version.id),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: _selectMinecraftVersion,
+                          _buildMinecraftVersionList(
+                            availableVersions,
+                            selectedVersion,
                           ),
                       ],
                     ),
@@ -685,6 +744,77 @@ class MinecraftDownloadEntryCard extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// One row of the virtualized Minecraft version list.
+///
+/// Kept as a small `StatelessWidget` so scrolling only rebuilds the rows that
+/// enter the viewport.
+class _MinecraftVersionRow extends StatelessWidget {
+  const _MinecraftVersionRow({
+    required this.versionId,
+    required this.selected,
+    required this.dark,
+    required this.selectedColor,
+    required this.foregroundColor,
+    required this.mutedColor,
+    required this.onTap,
+  });
+
+  final String versionId;
+  final bool selected;
+  final bool dark;
+  final Color selectedColor;
+  final Color foregroundColor;
+  final Color mutedColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected
+        ? foregroundColor
+        : (dark ? Colors.white70 : const Color(0xFF3C463B));
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Material(
+        color: selected
+            ? selectedColor
+            : (dark ? const Color(0x22000000) : Colors.transparent),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  size: 16,
+                  color: selected ? foregroundColor : mutedColor,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    versionId,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: color,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

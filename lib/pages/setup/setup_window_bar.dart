@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../widgets/launcher/launcher_common.dart';
 
 class SetupWindowBar extends StatelessWidget {
@@ -12,6 +13,7 @@ class SetupWindowBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
     return SizedBox(
       height: 52,
       child: Row(
@@ -34,7 +36,7 @@ class SetupWindowBar extends StatelessWidget {
                     const BlockLogo(),
                     const SizedBox(width: 12),
                     Text(
-                      'Baogan Craft Launcher',
+                      l10n.appTitle,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -49,13 +51,13 @@ class SetupWindowBar extends StatelessWidget {
           ),
           if (Platform.isWindows) ...[
             IconButton(
-              tooltip: '最小化',
+              tooltip: l10n.actionMinimize,
               onPressed: () => unawaited(windowManager.minimize()),
               icon: const Icon(Icons.minimize_rounded, size: 17),
               color: dark ? Colors.white : const Color(0xFF26351F),
             ),
             IconButton(
-              tooltip: '关闭',
+              tooltip: l10n.actionClose,
               onPressed: () => unawaited(windowManager.close()),
               icon: const Icon(Icons.close_rounded, size: 17),
               color: dark ? Colors.white : const Color(0xFF26351F),

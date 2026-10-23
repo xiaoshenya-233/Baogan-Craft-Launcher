@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:baogan_craft_launcher/core/preferences_store.dart';
+import 'package:baogan_craft_launcher/pages/launcher/controllers/appearance_controller.dart';
 import 'package:baogan_craft_launcher/pages/launcher/controllers/auth_controller.dart';
 import 'package:baogan_craft_launcher/pages/launcher/controllers/download_activity_controller.dart';
 import 'package:baogan_craft_launcher/pages/launcher/controllers/java_environment_controller.dart';
@@ -101,12 +103,10 @@ void main() {
     auth.applyPreferences(
       modeName: 'thirdParty',
       offlinePlayerName: 'Steve_1',
-      microsoftClientId: 'client-id',
       thirdPartyAuthServer: ' https://example.com/api/yggdrasil ',
     );
     expect(auth.mode, AuthMode.thirdParty);
     expect(auth.offlinePlayerName, 'Steve_1');
-    expect(auth.microsoftClientId, 'client-id');
     expect(auth.thirdPartyAuthServer, 'https://example.com/api/yggdrasil');
     await auth.updateMode(AuthMode.microsoft);
     expect(auth.mode, AuthMode.microsoft);
@@ -136,5 +136,75 @@ void main() {
     activity.finish();
     expect(activity.activeTask, isNull);
     expect(activity.cancellationToken, isNull);
+  });
+
+  test('appearance controller persists and restores the UI language', () async {
+    final directory = await Directory.systemTemp.createTemp('launcher_lang_');
+    addTearDown(() => directory.delete(recursive: true));
+    final preferencesFile = File(
+      '${directory.path}${Platform.pathSeparator}preferences.json',
+    );
+    final preferences = PreferencesStore(fileProvider: () => preferencesFile);
+    final appearance = AppearanceController(
+      onThemeModeChanged: (_) {},
+      preferences: preferences,
+    );
+    addTearDown(() {
+      appearance.dispose();
+      launcherLocale.value = launcherDefaultLocale;
+    });
+
+    expect(appearance.locale, launcherDefaultLocale);
+    expect(launcherLocale.value, launcherDefaultLocale);
+
+    appearance.setLocale(const Locale('en'));
+    expect(appearance.locale.languageCode, 'en');
+    expect(launcherLocale.value.languageCode, 'en');
+    var stored = '';
+    for (var attempt = 0; attempt < 100 && stored != 'en'; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      stored = await preferences.readLanguage();
+    }
+    expect(stored, 'en');
+
+    appearance.setLocale(const Locale('fr'));
+    expect(appearance.locale, launcherDefaultLocale);
+
+    await preferences.setLanguage('en');
+    launcherLocale.value = const Locale('zh');
+    await appearance.loadLanguagePreference();
+    expect(appearance.locale.languageCode, 'en');
+    expect(launcherLocale.value.languageCode, 'en');
+  });
+
+  test('first launch follows the system language until one is saved', () async {
+    final directory = await Directory.systemTemp.createTemp('launcher_lang_');
+    addTearDown(() => directory.delete(recursive: true));
+    final preferencesFile = File(
+      '${directory.path}${Platform.pathSeparator}preferences.json',
+    );
+    final preferences = PreferencesStore(fileProvider: () => preferencesFile);
+    final appearance = AppearanceController(
+      onThemeModeChanged: (_) {},
+      preferences: preferences,
+    );
+    addTearDown(() {
+      appearance.dispose();
+      launcherLocale.value = launcherDefaultLocale;
+    });
+
+    expect(detectLauncherLocale(const Locale('zh', 'CN')), const Locale('zh'));
+    expect(detectLauncherLocale(const Locale('en', 'US')), const Locale('en'));
+    expect(detectLauncherLocale(const Locale('fr')), const Locale('en'));
+
+    // Nothing saved yet: an English system starts in English.
+    await appearance.loadLanguagePreference(systemLocale: const Locale('en'));
+    expect(appearance.locale.languageCode, 'en');
+    expect(await preferences.readLanguageOrNull(), isNull);
+
+    // A saved choice always wins over the system language.
+    await preferences.setLanguage('zh');
+    await appearance.loadLanguagePreference(systemLocale: const Locale('en'));
+    expect(appearance.locale.languageCode, 'zh');
   });
 }

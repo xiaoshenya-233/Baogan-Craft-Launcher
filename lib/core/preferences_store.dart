@@ -23,6 +23,12 @@ class PreferencesStore {
   /// Value that asks the launcher to match Java per Minecraft version.
   static const String autoJavaValue = 'auto';
 
+  /// Key of the launcher UI language.
+  static const String languageKey = 'app_language';
+
+  /// Language used when nothing (or an unknown value) is persisted.
+  static const String defaultLanguage = 'zh';
+
   /// Tail of the shared write queue.
   static Future<void> _writeQueue = Future<void>.value();
 
@@ -76,6 +82,39 @@ class PreferencesStore {
       normalized.isEmpty ? autoJavaValue : normalized,
     );
   }
+
+  /// Reads the persisted UI language, or `null` when nothing usable is saved.
+  ///
+  /// `null` lets the launcher fall back to the detected system language instead
+  /// of forcing Chinese on first launch.
+  Future<String?> readLanguageOrNull() async {
+    try {
+      final all = await readAll();
+      final value = all[languageKey];
+      if (value is String && supportedLanguages.contains(value.trim())) {
+        return value.trim();
+      }
+      return null;
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Reads the persisted UI language; unknown values fall back to `zh`.
+  Future<String> readLanguage() async =>
+      await readLanguageOrNull() ?? defaultLanguage;
+
+  /// Persists the UI language; unsupported codes are stored as the default.
+  Future<void> setLanguage(String languageCode) {
+    final normalized = languageCode.trim();
+    return write(
+      languageKey,
+      supportedLanguages.contains(normalized) ? normalized : defaultLanguage,
+    );
+  }
+
+  /// Languages the launcher UI currently ships translations for.
+  static const List<String> supportedLanguages = <String>['zh', 'en'];
 
   Future<void> write(String key, Object? value) {
     final task = _writeQueue.then((_) => _writeNow(key, value));

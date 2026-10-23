@@ -5,7 +5,7 @@ enum AccountType { offline, microsoft, thirdParty }
 
 extension AccountTypeInfo on AccountType {
   String get label => switch (this) {
-    AccountType.offline => '离线账号',
+    AccountType.offline => '本地档案',
     AccountType.microsoft => 'Microsoft 正版',
     AccountType.thirdParty => '第三方验证',
   };

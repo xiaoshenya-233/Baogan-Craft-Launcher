@@ -7,7 +7,7 @@ extension _MinecraftActions on _LauncherHomePageState {
     if (_isChoosingDownloadClient) return null;
     final installedVersions = candidates ?? _localVersions;
     if (installedVersions.isEmpty) {
-      _showVersionMessage('尚未发现客户端，请先选择游戏目录或下载 Minecraft。');
+      _showVersionMessage(_l10n.homeNoClientsFound);
       _shell.selectTab(LauncherTab.versions);
       return null;
     }
@@ -29,18 +29,24 @@ extension _MinecraftActions on _LauncherHomePageState {
         context: context,
         builder: (dialogContext) => StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
-            title: Text(candidates == null ? '选择安装客户端' : '选择 Fabric 客户端'),
+            title: Text(
+              candidates == null
+                  ? _l10n.homeInstallPickClientTitle
+                  : _l10n.homeInstallPickFabricClientTitle,
+            ),
             content: SizedBox(
               width: 420,
               child: DropdownButtonFormField<String>(
                 initialValue: selection,
-                decoration: const InputDecoration(labelText: '将资源安装到'),
+                decoration: InputDecoration(
+                  labelText: _l10n.homeInstallTargetLabel,
+                ),
                 items: installedVersions
                     .map(
                       (version) => DropdownMenuItem(
                         value: version.directoryPath,
                         child: Text(
-                          '${version.id} · ${version.loaderType ?? '原版'}',
+                          '${version.id} · ${version.loaderType ?? _l10n.versionVanilla}',
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -52,13 +58,13 @@ extension _MinecraftActions on _LauncherHomePageState {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('取消'),
+                child: Text(_l10n.actionCancel),
               ),
               FilledButton(
                 onPressed: selection == null
                     ? null
                     : () => Navigator.pop(dialogContext, selection),
-                child: const Text('记住并继续'),
+                child: Text(_l10n.homeRememberAndContinue),
               ),
             ],
           ),
@@ -70,10 +76,14 @@ extension _MinecraftActions on _LauncherHomePageState {
           .where((version) => version.directoryPath == chosenId)
           .firstOrNull;
     } on FormatException catch (error) {
-      _showVersionMessage('保存客户端选择失败：${error.message}');
+      _showVersionMessage(
+        _l10n.homeSaveClientSelectionFailed(error.message),
+      );
       return null;
     } on FileSystemException catch (error) {
-      _showVersionMessage('保存客户端选择失败：${error.message}');
+      _showVersionMessage(
+        _l10n.homeSaveClientSelectionFailed(error.message),
+      );
       return null;
     } finally {
       if (mounted) _setPageState(() => _isChoosingDownloadClient = false);
@@ -112,13 +122,22 @@ extension _MinecraftActions on _LauncherHomePageState {
     } on HttpException catch (error) {
       _finishMinecraftCatalogLoad(requestId, error.message);
     } on SocketException catch (error) {
-      _finishMinecraftCatalogLoad(requestId, '网络连接失败：${error.message}');
+      _finishMinecraftCatalogLoad(
+        requestId,
+        _l10n.homeNetworkFailed(error.message),
+      );
     } on IOException catch (error) {
-      _finishMinecraftCatalogLoad(requestId, '读取 BMCLAPI 失败：$error');
+      _finishMinecraftCatalogLoad(
+        requestId,
+        _l10n.homeCatalogReadFailed('$error'),
+      );
     } on TimeoutException {
-      _finishMinecraftCatalogLoad(requestId, '请求 BMCLAPI 超时，请稍后重试。');
+      _finishMinecraftCatalogLoad(requestId, _l10n.homeCatalogTimeout);
     } on FormatException catch (error) {
-      _finishMinecraftCatalogLoad(requestId, '版本数据格式无效：${error.message}');
+      _finishMinecraftCatalogLoad(
+        requestId,
+        _l10n.homeVersionDataInvalid(error.message),
+      );
     }
   }
 
@@ -135,7 +154,7 @@ extension _MinecraftActions on _LauncherHomePageState {
     if (minecraftVersion == null || minecraftVersion.isEmpty) return;
     LauncherLog.info(
       'Catalog',
-      '获取 ${loader.label} 加载器版本（Minecraft $minecraftVersion）',
+      _l10n.homeLoaderFetchStatus(loader.label, minecraftVersion),
     );
     if (_loaderVersions.containsKey(loader) ||
         _loadingLoaderVersions.contains(loader)) {
@@ -161,16 +180,24 @@ extension _MinecraftActions on _LauncherHomePageState {
     } on HttpException catch (error) {
       _finishLoaderVersionLoad(loader, requestId, error.message);
     } on SocketException catch (error) {
-      _finishLoaderVersionLoad(loader, requestId, '网络连接失败：${error.message}');
+      _finishLoaderVersionLoad(
+        loader,
+        requestId,
+        _l10n.homeNetworkFailed(error.message),
+      );
     } on IOException catch (error) {
-      _finishLoaderVersionLoad(loader, requestId, '读取 BMCLAPI 失败：$error');
+      _finishLoaderVersionLoad(
+        loader,
+        requestId,
+        _l10n.homeCatalogReadFailed('$error'),
+      );
     } on TimeoutException {
-      _finishLoaderVersionLoad(loader, requestId, '请求 BMCLAPI 超时，请稍后重试。');
+      _finishLoaderVersionLoad(loader, requestId, _l10n.homeCatalogTimeout);
     } on FormatException catch (error) {
       _finishLoaderVersionLoad(
         loader,
         requestId,
-        '加载器版本数据格式无效：${error.message}',
+        _l10n.homeLoaderDataInvalid(error.message),
       );
     }
   }
@@ -226,23 +253,25 @@ extension _MinecraftActions on _LauncherHomePageState {
 
   Future<void> _installSelectedMinecraft() async {
     if (_isInstallingMinecraft || _isDownloadingResources) {
-      _showVersionMessage('已有下载任务正在进行，请等待完成或先取消当前任务。');
+      _showVersionMessage(_l10n.homeDownloadBusy);
       return;
     }
     final version = _selectedMinecraftVersion;
     if (version == null || version.isEmpty) {
-      _showVersionMessage('请先选择一个 Minecraft 版本。');
+      _showVersionMessage(_l10n.homeSelectMinecraftVersionFirst);
       return;
     }
     if (_selectedMinecraftLoader != null &&
         (_selectedLoaderVersion == null || _selectedLoaderVersion!.isEmpty)) {
-      _showVersionMessage('请先选择有效的 ${_selectedMinecraftLoader!.label} 版本。');
+      _showVersionMessage(
+        _l10n.homeSelectLoaderVersionFirst(_selectedMinecraftLoader!.label),
+      );
       return;
     }
     final requestedName = _minecraftClientNameController.text.trim();
     if (requestedName.isNotEmpty &&
         !isValidMinecraftClientName(requestedName)) {
-      _showVersionMessage('客户端名称无效：不能包含 \\ / : * ? " < > |，也不能使用系统保留名称。');
+      _showVersionMessage(_l10n.homeInvalidClientName);
       return;
     }
     late final String targetPath;
@@ -251,8 +280,8 @@ extension _MinecraftActions on _LauncherHomePageState {
       targetPath = currentPath.isNotEmpty
           ? currentPath
           : _defaultMinecraftDirectory();
-    } on FileSystemException catch (error) {
-      _showVersionMessage(error.message);
+    } on FileSystemException {
+      _showVersionMessage(_l10n.homeChooseMinecraftFolder);
       return;
     }
     final requestedClientDirectory = requestedName.isEmpty
@@ -263,7 +292,7 @@ extension _MinecraftActions on _LauncherHomePageState {
           );
     if (requestedClientDirectory != null &&
         await requestedClientDirectory.exists()) {
-      _showVersionMessage('客户端名称「$requestedName」已存在，请换一个名称。');
+      _showVersionMessage(_l10n.homeClientNameExists(requestedName));
       return;
     }
     final existingVersionDirectories = await _snapshotVersionDirectories(
@@ -273,7 +302,7 @@ extension _MinecraftActions on _LauncherHomePageState {
     _environment.selectSource(targetPath);
     _setPageState(() {
       _isInstallingMinecraft = true;
-      _minecraftInstallStatus = '准备下载 Minecraft $version…';
+      _minecraftInstallStatus = _l10n.homePreparingDownload(version);
       _minecraftInstallError = null;
       _activeDownloadToken = cancellation;
       _activeDownloadTask = _minecraftInstallStatus;
@@ -325,7 +354,10 @@ extension _MinecraftActions on _LauncherHomePageState {
           javaExecutable: javaExecutable,
           source: _minecraftDownloadSource,
           downloadManager: _downloadManager,
-          groupLabel: '${selectedLoader.label} $loaderVersion 安装器',
+          groupLabel: _l10n.homeInstallerLabel(
+            selectedLoader.label,
+            loaderVersion,
+          ),
           cancellation: cancellation,
           onProgress: (status) {
             if (!mounted) return;
@@ -415,9 +447,9 @@ extension _MinecraftActions on _LauncherHomePageState {
           'Minecraft $version'
           '${selectedLoader == null ? '' : ' · ${selectedLoader.label} $loaderVersion'}';
       final completionMessage = loaderInstalled
-          ? '$baseSummary 安装完成。'
-                '${fabricApiReady ? '' : ' Fabric API 未完成，可在资源页重试。'}'
-          : 'OptiFine 安装器已关闭，请重新扫描版本列表确认安装结果。';
+          ? '${_l10n.homeInstallFinished(baseSummary)}'
+                '${fabricApiReady ? '' : _l10n.homeFabricApiIncomplete}'
+          : _l10n.homeOptifineClosedRescan;
       _setPageState(() {
         _isInstallingMinecraft = false;
         _minecraftInstallStatus = completionMessage;
@@ -426,8 +458,12 @@ extension _MinecraftActions on _LauncherHomePageState {
       _minecraftClientNameController.clear();
       _showVersionMessage(
         loaderInstalled
-            ? 'Minecraft $version${selectedLoader == null ? '' : ' · ${selectedLoader.label}'} 已安装到 $targetPath。'
-            : 'OptiFine 安装器已关闭，请确认安装结果后重新扫描版本。',
+            ? _l10n.homeInstalledTo(
+                'Minecraft $version'
+                '${selectedLoader == null ? '' : ' · ${selectedLoader.label}'}',
+                targetPath,
+              )
+            : _l10n.homeOptifineClosedConfirm,
       );
     } on DownloadCancelledException {
       if (!clientInstalled) {
@@ -440,51 +476,53 @@ extension _MinecraftActions on _LauncherHomePageState {
         _setPageState(() {
           _isInstallingMinecraft = false;
           _minecraftInstallStatus = clientInstalled
-              ? '客户端已完成安装，剩余下载已取消。'
+              ? _l10n.homeClientInstallDoneCancelRest
               : null;
           _minecraftInstallError = null;
           _activeDownloadTask = null;
         });
       }
       _showVersionMessage(
-        clientInstalled ? '客户端已完成安装，剩余下载已取消。' : '下载已取消，临时文件已清理。',
+        clientInstalled
+            ? _l10n.homeClientInstallDoneCancelRest
+            : _l10n.homeDownloadCancelled,
       );
     } on HttpException catch (error) {
       await _cleanupFailedVersionInstall(
         targetPath,
         existingVersionDirectories,
       );
-      _failMinecraftInstall('下载服务器返回错误：${error.message}');
+      _failMinecraftInstall(_l10n.homeDownloadServerError(error.message));
     } on SocketException catch (error) {
       await _cleanupFailedVersionInstall(
         targetPath,
         existingVersionDirectories,
       );
-      _failMinecraftInstall('下载连接失败：${error.message}');
+      _failMinecraftInstall(_l10n.homeDownloadConnectFailed(error.message));
     } on TimeoutException {
       await _cleanupFailedVersionInstall(
         targetPath,
         existingVersionDirectories,
       );
-      _failMinecraftInstall('安装超时，请检查网络代理后重试。');
+      _failMinecraftInstall(_l10n.homeInstallTimeout);
     } on FormatException catch (error) {
       await _cleanupFailedVersionInstall(
         targetPath,
         existingVersionDirectories,
       );
-      _failMinecraftInstall('Minecraft 版本数据无效：${error.message}');
+      _failMinecraftInstall(_l10n.homeMinecraftDataInvalid(error.message));
     } on FileSystemException catch (error) {
       await _cleanupFailedVersionInstall(
         targetPath,
         existingVersionDirectories,
       );
-      _failMinecraftInstall('写入 Minecraft 文件失败：${error.message}');
+      _failMinecraftInstall(_l10n.homeWriteFilesFailed(error.message));
     } on IOException catch (error) {
       await _cleanupFailedVersionInstall(
         targetPath,
         existingVersionDirectories,
       );
-      _failMinecraftInstall('Minecraft 下载失败：$error');
+      _failMinecraftInstall(_l10n.homeMinecraftDownloadFailed('$error'));
     } finally {
       if (mounted && identical(_activeDownloadToken, cancellation)) {
         _setPageState(() => _activeDownloadToken = null);

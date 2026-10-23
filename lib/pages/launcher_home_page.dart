@@ -14,6 +14,7 @@ import '../core/path_manager.dart';
 import '../core/path_utils.dart';
 import '../core/platform_launcher.dart';
 import '../core/preferences_store.dart';
+import '../l10n/app_localizations.dart';
 import '../widgets/download/active_download_banner.dart';
 import 'launcher/controllers/appearance_controller.dart';
 import 'launcher/controllers/auth_controller.dart';
@@ -132,6 +133,9 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
   late final ResourceDownloadController _resourceDownloads;
   late final MinecraftDownloadController _minecraftDownloads;
 
+  /// Localized strings for every `part` file of this library.
+  AppLocalizations get _l10n => AppLocalizations.of(context)!;
+
   String get _minecraftPath => _environment.minecraftPath;
   List<String> get _minecraftSources => _environment.minecraftSources;
   List<LauncherVersion> get _versions => _catalog.versions;
@@ -146,7 +150,7 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
   bool get _hasSearchedJava => _java.hasSearched;
   AuthMode get _launchAuthMode => _auth.mode;
   String get _offlinePlayerName => _auth.offlinePlayerName;
-  String get _microsoftClientId => _auth.microsoftClientId;
+
   String get _thirdPartyAuthServer => _auth.thirdPartyAuthServer;
   String? get _lightWallpaperPath => _appearance.lightWallpaperPath;
   String? get _darkWallpaperPath => _appearance.darkWallpaperPath;
@@ -315,6 +319,7 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
     unawaited(_catalog.loadVersions());
     unawaited(_loadLauncherPreferences());
     unawaited(_appearance.loadWallpaperPreferences());
+    unawaited(_appearance.loadLanguagePreference());
     unawaited(_java.loadCache());
     unawaited(_detectMemoryLimit());
     WidgetsBinding.instance.addPostFrameCallback((_) {

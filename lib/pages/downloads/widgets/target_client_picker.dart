@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:path/path.dart' as p;
 
+import '../../../l10n/app_localizations.dart';
 import '../../../services/installer/version_models.dart';
 import '../../../services/network/models.dart';
 import '../../../widgets/version_icon.dart';
@@ -40,6 +43,7 @@ class TargetClientPicker extends StatefulWidget {
     required this.gameVersions,
     required this.loaders,
     this.modTitle,
+    this.preferredClientPath,
     this.onTargetSelected,
   });
 
@@ -68,6 +72,13 @@ class TargetClientPicker extends StatefulWidget {
   final List<String> loaders;
 
   final String? modTitle;
+
+  /// Path of the client currently selected elsewhere in the launcher.
+  ///
+  /// It only affects the initial selection: a compatible preferred client is
+  /// preselected before falling back to the first compatible client.
+  final String? preferredClientPath;
+
   final TargetClientCallback? onTargetSelected;
 
   /// Opens the dialog and resolves to the chosen target, or `null` on cancel.
@@ -77,6 +88,7 @@ class TargetClientPicker extends StatefulWidget {
     required List<String> gameVersions,
     required List<String> loaders,
     String? modTitle,
+    String? preferredClientPath,
     TargetClientCallback? onTargetSelected,
   }) {
     return showDialog<TargetClientSelection>(
@@ -86,6 +98,7 @@ class TargetClientPicker extends StatefulWidget {
         gameVersions: gameVersions,
         loaders: loaders,
         modTitle: modTitle,
+        preferredClientPath: preferredClientPath,
         onTargetSelected: onTargetSelected,
       ),
     );
@@ -103,13 +116,42 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
   @override
   void initState() {
     super.initState();
-    // Smart default: first client whose version and loader both match.
-    for (final client in widget.clients) {
-      if (_isCompatible(client)) {
-        _selectedClient = client;
-        break;
+    _selectedClient = _defaultSelection();
+  }
+
+  /// Strict priority: compatible preferred client -> first compatible client ->
+  /// nothing selected.
+  ///
+  /// Incompatible clients are intentionally never auto-selected, but the player
+  /// can always choose one manually (e.g. for Sinytra Connector setups).
+  LauncherVersion? _defaultSelection() {
+    final preferredPath = widget.preferredClientPath;
+    final preferredKey = preferredPath == null || preferredPath.trim().isEmpty
+        ? null
+        : _comparablePath(preferredPath);
+    if (preferredKey != null) {
+      debugPrint('[Picker] 传入的首选路径: $preferredPath');
+      for (final client in widget.clients) {
+        final isMatch =
+            _comparablePath(client.path) == preferredKey &&
+            _isCompatible(client);
+        debugPrint('[Picker] 正在比对的客户端路径: ${client.path}');
+        debugPrint('[Picker] 是否匹配成功: $isMatch');
+        if (isMatch) return client;
       }
     }
+    for (final client in widget.clients) {
+      if (_isCompatible(client)) return client;
+    }
+    return null;
+  }
+
+  /// Windows-safe comparison key: normalized separators, `p.normalize`, and
+  /// lower case on Windows (paths there are case-insensitive).
+  static String _comparablePath(String value) {
+    var normalized = p.normalize(value.trim()).replaceAll('\\', '/');
+    if (Platform.isWindows) normalized = normalized.toLowerCase();
+    return normalized;
   }
 
   Set<String> get _normalizedLoaders => widget.loaders
@@ -139,6 +181,15 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
   bool _isCompatible(LauncherVersion client) =>
       _matchesVersion(client) && _matchesLoader(client);
 
+  String _badgeLabel(LauncherVersion client, AppLocalizations l10n) {
+    if (_isCompatible(client)) return l10n.targetClientBadgeCompatible;
+    final versionOk = _matchesVersion(client);
+    final loaderOk = _matchesLoader(client);
+    if (!versionOk && !loaderOk) return l10n.targetClientBadgeBothMismatch;
+    if (!versionOk) return l10n.targetClientBadgeVersionMismatch;
+    return l10n.targetClientBadgeLoaderMismatch;
+  }
+
   static String _normalizeLoader(String? loaderType) {
     final value = (loaderType ?? '')
         .trim()
@@ -166,9 +217,10 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
       _pickerError = null;
     });
     String? path;
+    final l10n = AppLocalizations.of(context)!;
     try {
       path = await FilePicker.getDirectoryPath(
-        dialogTitle: '选择客户端目录（version 文件夹）',
+        dialogTitle: l10n.targetClientFolderDialogTitle,
       );
     } on FormatException catch (error) {
       path = null;
@@ -192,8 +244,12 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final dialogWidth = math.max(260.0, math.min(520.0, screenWidth - 96));
+    final selectedClient = _selectedClient;
+    final selectedIncompatible =
+        selectedClient != null && !_isCompatible(selectedClient);
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
@@ -203,7 +259,7 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '选择目标客户端',
+              l10n.targetClientTitle,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -219,25 +275,29 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
           children: [
             Text(
               widget.modTitle == null || widget.modTitle!.trim().isEmpty
-                  ? '选择要把资源安装到哪个客户端。'
-                  : '为「${widget.modTitle!.trim()}」选择安装位置。',
+                  ? l10n.targetClientSubtitle
+                  : l10n.targetClientSubtitleNamed(widget.modTitle!.trim()),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 6),
             Text(
-              _supportSummary(),
+              _supportSummary(l10n),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
             ),
+            if (selectedIncompatible) ...[
+              const SizedBox(height: 10),
+              _buildMismatchWarning(l10n, scheme),
+            ],
             const SizedBox(height: 12),
             if (widget.clients.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  '还没有可用客户端，请先在版本管理中安装客户端。',
+                  l10n.targetClientEmpty,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -253,14 +313,14 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
                     itemCount: widget.clients.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) =>
-                        _buildClientCard(widget.clients[index]),
+                        _buildClientCard(widget.clients[index], l10n),
                   ),
                 ),
               ),
             if (_pickerError != null) ...[
               const SizedBox(height: 8),
               Text(
-                '无法选择文件夹：$_pickerError',
+                l10n.targetClientPickFolderFailed('$_pickerError'),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: scheme.error,
                 ),
@@ -273,7 +333,7 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(l10n.actionCancel),
         ),
         Wrap(
           spacing: 4,
@@ -281,11 +341,13 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
             TextButton.icon(
               onPressed: _isPickingFolder ? null : _pickFolder,
               icon: const Icon(Icons.tune_rounded, size: 17),
-              label: const Text('让我自己决定放在哪'),
+              label: Text(l10n.targetClientChooseFolder),
             ),
             FilledButton(
-              onPressed: _selectedClient == null ? null : _confirmClient,
-              child: const Text('确认安装'),
+              // Never disabled for compatibility: any manually chosen client
+              // (even a mismatched one) can be confirmed.
+              onPressed: selectedClient == null ? null : _confirmClient,
+              child: Text(l10n.targetClientConfirm),
             ),
           ],
         ),
@@ -293,22 +355,62 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
     );
   }
 
-  String _supportSummary() {
+  String _supportSummary(AppLocalizations l10n) {
     final parts = <String>[];
     if (_hasVersionFilter) {
       final versions = widget.gameVersions.take(5).join(' / ');
-      final suffix = widget.gameVersions.length > 5 ? ' 等' : '';
-      parts.add('支持版本：$versions$suffix');
+      final suffix = widget.gameVersions.length > 5 ? ' …' : '';
+      parts.add(l10n.targetClientSupportVersions('$versions$suffix'));
     }
     if (_hasLoaderFilter) {
-      parts.add('支持加载器：${widget.loaders.join(' / ')}');
+      parts.add(
+        l10n.targetClientSupportLoaders(widget.loaders.join(' / ')),
+      );
     }
-    if (parts.isEmpty) return '该资源未声明版本或加载器限制，所有客户端均可安装。';
+    if (parts.isEmpty) return l10n.targetClientSupportNone;
     return parts.join(' · ');
   }
 
+  /// Material 3 amber banner shown whenever the manual selection does not match
+  /// the resource's declared version/loader.
+  Widget _buildMismatchWarning(
+    AppLocalizations l10n,
+    ColorScheme scheme,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.tertiaryContainer.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.tertiary.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 18,
+            color: scheme.onTertiaryContainer,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              l10n.targetClientWarning,
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.4,
+                color: scheme.onTertiaryContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildClientCard(LauncherVersion client) {
+
+  Widget _buildClientCard(LauncherVersion client, AppLocalizations l10n) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final selected = _selectedClient?.path == client.path;
@@ -350,7 +452,7 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _clientSubtitle(client),
+                      _clientSubtitle(client, l10n),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -360,10 +462,10 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
                   ],
                 ),
               ),
-              if (compatible)
-                _buildBadge('兼容', scheme.primary)
-              else
-                _buildBadge('版本不符', scheme.outline),
+              _buildBadge(
+                _badgeLabel(client, l10n),
+                compatible ? scheme.primary : scheme.tertiary,
+              ),
               const SizedBox(width: 8),
               Icon(
                 selected
@@ -397,14 +499,14 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
     );
   }
 
-  String _clientSubtitle(LauncherVersion client) {
+  String _clientSubtitle(LauncherVersion client, AppLocalizations l10n) {
     final minecraft = client.minecraftVersion?.trim();
     final loader = client.loaderType?.trim();
     final parts = <String>[
       if (minecraft != null && minecraft.isNotEmpty) 'Minecraft $minecraft',
       if (loader != null && loader.isNotEmpty) loader,
     ];
-    if (parts.isEmpty) parts.add('未知版本');
+    if (parts.isEmpty) parts.add(l10n.commonUnknownVersion);
     return parts.join(' · ');
   }
 

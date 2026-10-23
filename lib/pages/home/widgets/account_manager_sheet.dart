@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../services/network/account_models.dart';
 import '../../launcher/controllers/auth_controller.dart';
 
@@ -47,22 +48,23 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
   }
 
   Future<void> _confirmRemove(UserAccount account) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('移除账号'),
+        title: Text(l10n.accountRemoveTitle),
         content: Text(
-          '确定要从启动器移除「${account.name}」吗？\n'
-          '本机保存的加密登录凭据也会一并清除。',
+          '${l10n.accountRemoveConfirm(account.name)}\n'
+          '${l10n.accountRemoveHint}',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(l10n.actionCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('移除'),
+            child: Text(l10n.actionRemove),
           ),
         ],
       ),
@@ -83,6 +85,7 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return AnimatedBuilder(
       animation: widget.auth,
       builder: (context, _) {
@@ -122,21 +125,21 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '账号管理',
+                      l10n.accountManagerTitle,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '共 ${accounts.length} 个账号',
+                      l10n.accountCount(accounts.length),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
                     const Spacer(),
                     IconButton(
-                      tooltip: '关闭',
+                      tooltip: l10n.actionClose,
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.close_rounded, size: 20),
                     ),
@@ -148,7 +151,7 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
                     ? Padding(
                         padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
                         child: Text(
-                          '还没有保存的账号。点击下方按钮添加 Microsoft、离线或第三方账号。',
+                          l10n.accountManagerEmpty,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -177,7 +180,7 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
                   child: FilledButton.icon(
                     onPressed: _addAccount,
                     icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                    label: const Text('添加新账号'),
+                    label: Text(l10n.accountAddNew),
                   ),
                 ),
               ),
@@ -188,6 +191,13 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
     );
   }
 
+  String _accountTypeLabel(AccountType type, AppLocalizations l10n) =>
+      switch (type) {
+        AccountType.offline => l10n.authModeLocalProfile,
+        AccountType.microsoft => l10n.authModeMicrosoft,
+        AccountType.thirdParty => l10n.authModeThirdParty,
+      };
+
   Widget _buildAccountCard(
     UserAccount account, {
     required bool isCurrent,
@@ -195,6 +205,7 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
     required ThemeData theme,
   }) {
     final busy = _busyAccountId == account.id;
+    final l10n = AppLocalizations.of(context)!;
     return Material(
       color: isCurrent
           ? scheme.primaryContainer.withValues(alpha: 0.5)
@@ -230,7 +241,7 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      account.type.label,
+                      _accountTypeLabel(account.type, l10n),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -261,7 +272,7 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '当前使用',
+                    l10n.accountCurrent,
                     style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w700,
@@ -270,7 +281,7 @@ class _AccountManagerSheetState extends State<AccountManagerSheet> {
                   ),
                 ),
               IconButton(
-                tooltip: '移除账号',
+                tooltip: l10n.accountRemoveTitle,
                 onPressed: busy ? null : () => _confirmRemove(account),
                 icon: Icon(
                   Icons.delete_outline_rounded,

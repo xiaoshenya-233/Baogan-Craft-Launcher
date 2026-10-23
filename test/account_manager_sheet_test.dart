@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:baogan_craft_launcher/core/preferences_store.dart';
+import 'package:baogan_craft_launcher/l10n/app_localizations.dart';
 import 'package:baogan_craft_launcher/pages/home/widgets/account_manager_sheet.dart';
 import 'package:baogan_craft_launcher/pages/launcher/controllers/auth_controller.dart';
 import 'package:baogan_craft_launcher/services/network/account_manager.dart';
@@ -72,6 +73,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: AccountManagerSheet(auth: auth, onAddAccount: () async {}),
         ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 
 import '../../core/path_manager.dart';
+import '../../l10n/app_localizations.dart';
 import '../../widgets/launcher/launcher_common.dart';
 import 'setup_window_bar.dart';
 
@@ -23,6 +24,7 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
 
   Future<void> _selectDirectory() async {
     if (_selecting) return;
+    final l10n = AppLocalizations.of(context)!;
     setState(() {
       _selecting = true;
       _error = null;
@@ -32,7 +34,7 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
       String? selectedPath;
       try {
         selectedPath = await FilePicker.getDirectoryPath(
-          dialogTitle: '选择启动器根目录',
+          dialogTitle: l10n.setupTitle,
         );
       } on FormatException catch (error) {
         selectedPath = await _promptDirectoryPath(error.message);
@@ -43,7 +45,7 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
       if (!mounted) return;
       if (selectedPath == null || selectedPath.trim().isEmpty) {
         setState(() {
-          _error = '必须选择一个有效的启动器根目录才能继续。';
+          _error = l10n.setupInvalidDirectory;
         });
         return;
       }
@@ -52,13 +54,15 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
       if (!mounted) return;
       await widget.onConfigured();
     } on FormatException catch (error) {
-      if (mounted) setState(() => _error = '无法创建启动器目录：${error.message}');
+      if (mounted) {
+        setState(() => _error = l10n.setupCreateFailed(error.message));
+      }
     } on FileSystemException catch (error) {
       if (mounted) {
         setState(
           () => _error =
-              '无法创建启动器目录：${error.message}\n'
-              '请确认启动器程序目录可写，且所选磁盘有足够空间。',
+              '${l10n.setupCreateFailed(error.message)}\n'
+              '${l10n.setupWritableHint}',
         );
       }
     } finally {
@@ -68,21 +72,22 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
 
   Future<String?> _promptDirectoryPath(String pickerError) async {
     final controller = TextEditingController();
+    final l10n = AppLocalizations.of(context)!;
     final path = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('选择启动器根目录'),
+        title: Text(l10n.setupTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('文件夹选择器无法打开（$pickerError）。请直接输入根目录的完整路径。'),
+            Text(l10n.setupPickerUnavailable(pickerError)),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
               autofocus: true,
-              decoration: const InputDecoration(labelText: '例如 E:\\Games'),
+              decoration: InputDecoration(labelText: l10n.setupPathHint),
               onSubmitted: (value) =>
                   Navigator.pop(dialogContext, value.trim()),
             ),
@@ -91,12 +96,12 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
+            child: Text(l10n.actionCancel),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('使用此目录'),
+            child: Text(l10n.setupUseThisFolder),
           ),
         ],
       ),
@@ -147,6 +152,7 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
 
   Widget _buildDirectoryExample(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
     final textColor = dark ? Colors.white : const Color(0xFF26351F);
     final mutedColor = dark ? const Color(0xFFA8B6A3) : const Color(0xFF5A6657);
     final borderColor = dark
@@ -164,7 +170,7 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '例如选择 E:\\Games 后，将创建：',
+            l10n.setupDirectoryExampleTitle,
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
@@ -208,6 +214,7 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
 
   Widget _buildSetupCard(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
     final textColor = dark ? Colors.white : const Color(0xFF26351F);
     final mutedColor = dark ? const Color(0xFFA8B6A3) : const Color(0xFF5A6657);
     final cardColor = dark ? const Color(0xFF1B241A) : const Color(0xFFF8FAF6);
@@ -235,7 +242,7 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
           const Center(child: BlockLogo(size: 72, radius: 16)),
           const SizedBox(height: 18),
           Text(
-            '选择启动器根目录',
+            l10n.setupTitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 24,
@@ -245,8 +252,7 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            '首次启动必须完成目录设置，'
-            '配置完成前不会创建日志、数据库或缓存文件。',
+            l10n.setupSubtitle,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, height: 1.7, color: mutedColor),
           ),
@@ -263,7 +269,9 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.folder_open_rounded),
-            label: Text(_selecting ? '正在创建目录…' : '选择根目录'),
+            label: Text(
+              _selecting ? l10n.setupCreatingFolder : l10n.setupSelectFolder,
+            ),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
               textStyle: const TextStyle(
@@ -274,7 +282,7 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
           ),
           const SizedBox(height: 12),
           Text(
-            '取消文件夹选择不会进入主界面，请重新选择。',
+            l10n.setupCancelHint,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11.5, color: mutedColor),
           ),

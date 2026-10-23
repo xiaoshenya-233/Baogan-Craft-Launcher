@@ -8,7 +8,7 @@ extension _LaunchActions on _LauncherHomePageState {
       (version) => version.directoryPath == selectedId,
     );
     if (matchingVersions.isEmpty) {
-      _showVersionMessage('请先选择一个本地已安装的 Minecraft 版本。');
+      _showVersionMessage(_l10n.homeNeedInstalledVersion);
       return;
     }
     await _launchVersion(matchingVersions.first);
@@ -20,7 +20,7 @@ extension _LaunchActions on _LauncherHomePageState {
     ServerEntry server,
   ) async {
     if (_isLaunching) {
-      _showVersionMessage('已有启动任务正在进行，请稍后再试。');
+      _showVersionMessage(_l10n.homeLaunchBusy);
       return;
     }
     final matching = _localVersions.where(
@@ -28,7 +28,7 @@ extension _LaunchActions on _LauncherHomePageState {
     );
     if (matching.isEmpty) {
       _showVersionMessage(
-        '找不到 ${launcherVersion.name} 的启动配置，请刷新版本列表后重试。',
+        _l10n.homeMissingLaunchConfig(launcherVersion.name),
       );
       return;
     }
@@ -37,7 +37,7 @@ extension _LaunchActions on _LauncherHomePageState {
         _javaRuntimes.isEmpty &&
         _java.javaSelection != PreferencesStore.autoJavaValue) {
       _showVersionMessage(
-        '当前客户端未选择 Java 运行时，请先在「设置 → Java 管理」中选择 Java 后再快速加入。',
+        _l10n.homeJavaNotSelectedQuickJoin,
       );
       return;
     }
@@ -69,9 +69,7 @@ extension _LaunchActions on _LauncherHomePageState {
       if (!mounted || launchIdentity == null) {
         LauncherLog.warning('Launch', '认证未完成，已取消启动');
         if (mounted && server != null) {
-          _showVersionMessage(
-            '尚未配置可用账号，已取消快速加入。请先登录或设置离线昵称。',
-          );
+          _showVersionMessage(_l10n.homeQuickJoinNoAccount);
         }
         return;
       }
@@ -97,14 +95,13 @@ extension _LaunchActions on _LauncherHomePageState {
         javaExecutable = await _findJavaExecutable(version, clientSettings);
       } on StateError catch (error) {
         _showVersionMessage(
-          '未找到可用的 Java 运行时：${error.message}。'
-          '请先在「设置 → Java 管理」中选择 Java。',
+          _l10n.homeJavaRuntimeMissing(error.message),
         );
         return;
       }
       if (javaExecutable.trim().isEmpty) {
         _showVersionMessage(
-          '当前客户端未选择 Java 运行时，请先在「设置 → Java 管理」中选择 Java。',
+          _l10n.homeJavaNotSelected,
         );
         return;
       }
@@ -158,8 +155,12 @@ extension _LaunchActions on _LauncherHomePageState {
       _setPageState(() => _isLaunching = false);
       _showVersionMessage(
         server == null
-            ? '正在启动 Minecraft ${version.id}。'
-            : '正在启动 ${version.id} 并加入 ${server.name}（${server.address}）。',
+            ? _l10n.homeLaunching(version.id)
+            : _l10n.homeLaunchingJoin(
+                version.id,
+                server.name,
+                server.address,
+              ),
       );
     } on FormatException catch (error) {
       if (!mounted) return;
@@ -168,29 +169,27 @@ extension _LaunchActions on _LauncherHomePageState {
     } on FileSystemException catch (error) {
       if (!mounted) return;
       _setPageState(() => _isLaunching = false);
-      _showVersionMessage('启动文件不可用：${error.message}');
+      _showVersionMessage(_l10n.homeLaunchFilesUnavailable(error.message));
     } on ProcessException catch (error) {
       if (!mounted) return;
       _setPageState(() => _isLaunching = false);
-      _showVersionMessage(
-        '无法启动 Java：${error.message}。请在设置 → Java 管理中选择其他 Java。',
-      );
+      _showVersionMessage(_l10n.homeJavaStartFailed(error.message));
     } on SocketException catch (error) {
       if (!mounted) return;
       _setPageState(() => _isLaunching = false);
-      _showVersionMessage('连接认证服务失败：${error.message}');
+      _showVersionMessage(_l10n.homeAuthConnectFailed(error.message));
     } on HttpException catch (error) {
       if (!mounted) return;
       _setPageState(() => _isLaunching = false);
-      _showVersionMessage('认证请求失败：${error.message}');
+      _showVersionMessage(_l10n.homeAuthRequestFailed(error.message));
     } on HandshakeException catch (error) {
       if (!mounted) return;
       _setPageState(() => _isLaunching = false);
-      _showVersionMessage('认证服务 TLS 连接失败：${error.message}');
+      _showVersionMessage(_l10n.homeAuthTlsFailed(error.message));
     } on TimeoutException {
       if (!mounted) return;
       _setPageState(() => _isLaunching = false);
-      _showVersionMessage('认证请求超时，请检查网络后重试。');
+      _showVersionMessage(_l10n.homeAuthTimeout);
     } finally {
       final pendingPlan = launchPlan;
       if (pendingPlan != null) {
@@ -303,7 +302,7 @@ extension _LaunchActions on _LauncherHomePageState {
               _thirdPartyAuthServer;
           final jarPath = await AuthlibInjector.ensureExtracted();
           if (jarPath == null) {
-            _showVersionMessage('内置 authlib-injector 释放失败，请检查启动器目录的写入权限。');
+            _showVersionMessage(_l10n.homeAuthlibFailed);
             return null;
           }
           LauncherLog.info('Launch', '第三方认证服务器：$server · 代理：$jarPath');
@@ -330,26 +329,26 @@ extension _LaunchActions on _LauncherHomePageState {
     final playerName = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('离线玩家'),
+        title: Text(_l10n.localProfileTitle),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLength: 16,
           decoration: InputDecoration(
-            labelText: '玩家名称',
-            hintText: '3 至 16 位字母、数字或下划线',
+            labelText: _l10n.localProfileNameLabel,
+            hintText: _l10n.localProfileNameHint,
           ),
           onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text('取消'),
+            child: Text(_l10n.actionCancel),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, controller.text.trim()),
-            child: Text('继续'),
+            child: Text(_l10n.actionContinue),
           ),
         ],
       ),
@@ -391,7 +390,7 @@ extension _LaunchActions on _LauncherHomePageState {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text('取消'),
+              child: Text(_l10n.actionCancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(
@@ -402,7 +401,7 @@ extension _LaunchActions on _LauncherHomePageState {
                   third: third.text.trim(),
                 ),
               ),
-              child: Text('登录并启动'),
+              child: Text(_l10n.homeLoginAndLaunch),
             ),
           ],
         ),
@@ -421,23 +420,27 @@ extension _LaunchActions on _LauncherHomePageState {
     final usernameController = TextEditingController();
     final passwordController = TextEditingController();
     final setup = await _showLaunchSetupDialog(
-      title: '第三方服务器登录',
+      title: _l10n.homeThirdPartyLoginTitle,
       first: endpointController,
       second: usernameController,
       third: passwordController,
       buildFields: (endpoint, username, password) => [
         TextField(
           controller: endpoint,
-          decoration: InputDecoration(labelText: 'Yggdrasil API 地址'),
+          decoration: InputDecoration(
+            labelText: _l10n.homeYggdrasilAddress,
+          ),
         ),
         TextField(
           controller: username,
-          decoration: InputDecoration(labelText: '邮箱或用户名'),
+          decoration: InputDecoration(
+            labelText: _l10n.homeEmailOrUsername,
+          ),
           keyboardType: TextInputType.emailAddress,
         ),
         TextField(
           controller: password,
-          decoration: InputDecoration(labelText: '密码'),
+          decoration: InputDecoration(labelText: _l10n.homePassword),
           obscureText: true,
         ),
       ],
@@ -454,7 +457,7 @@ extension _LaunchActions on _LauncherHomePageState {
     final agentPath = await AuthlibInjector.ensureExtracted();
     if (!mounted) return null;
     if (agentPath == null) {
-      _showVersionMessage('内置 authlib-injector 释放失败，请检查启动器目录的写入权限。');
+      _showVersionMessage(_l10n.homeAuthlibFailed);
       return null;
     }
     LauncherLog.info('Auth', '第三方认证服务器：${request.server} · 代理：$agentPath');
@@ -469,40 +472,15 @@ extension _LaunchActions on _LauncherHomePageState {
 
   /// Microsoft sign-in through the `mcid_connect` package.
   ///
-  /// The device code is shown in a non-blocking dialog so the package can poll
-  /// for the token in the background; the dialog closes when the flow ends.
+  /// Uses the public community client id, so clicking “Microsoft 正版登录”
+  /// immediately shows the device-code dialog with no configuration step.
   Future<AuthIdentity?> _authenticateMicrosoft() async {
     final cached = _microsoftIdentity;
     if (cached != null) return cached;
 
-    final clientIdController = TextEditingController(text: _microsoftClientId);
-    final setup = await _showLaunchSetupDialog(
-      title: 'Microsoft 账号登录',
-      first: clientIdController,
-      second: TextEditingController(),
-      third: TextEditingController(),
-      buildFields: (clientId, _, _) => [
-        TextField(
-          controller: clientId,
-          decoration: const InputDecoration(
-            labelText: 'OAuth 客户端 ID',
-            helperText: '在 Azure 门户注册应用后填入应用 ID；认证设置中需开启“允许公共客户端流”。',
-          ),
-        ),
-      ],
-    );
-    if (!mounted || setup == null) return null;
-    final clientId = setup.first.trim();
-    if (clientId.isEmpty) {
-      _showVersionMessage('请先填写 Microsoft OAuth 客户端 ID。');
-      return null;
-    }
-    unawaited(_auth.updateMicrosoftClientId(clientId));
-
     var dialogOpen = false;
     try {
       final identity = await const MicrosoftConnectService().signIn(
-        clientId: clientId,
         onDeviceCode: (prompt) {
           if (!mounted) return;
           dialogOpen = true;
@@ -533,22 +511,24 @@ extension _LaunchActions on _LauncherHomePageState {
     MicrosoftConnectDeviceCode prompt,
   ) {
     final minutes = prompt.expiresInDuration.inMinutes;
+    final expiry = minutes > 0
+        ? '\n\n${_l10n.microsoftDeviceCodeExpiry(minutes)}'
+        : '';
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('完成 Microsoft 登录'),
+        title: Text(_l10n.microsoftDeviceCodeTitle),
         content: SelectableText(
-          '请打开 ${prompt.verificationUri} 并输入以下代码：\n\n${prompt.userCode}\n\n'
-          '${minutes > 0 ? '代码约 $minutes 分钟内有效，' : ''}'
-          '登录完成后此窗口会自动关闭。',
+          '${_l10n.microsoftDeviceCodeBody(prompt.verificationUri, prompt.userCode)}'
+          '$expiry',
         ),
         actions: [
           TextButton(
             onPressed: () => unawaited(
               PlatformLauncher.openUrl(prompt.verificationUri),
             ),
-            child: const Text('打开浏览器'),
+            child: Text(_l10n.actionOpenBrowser),
           ),
         ],
       ),
@@ -582,21 +562,21 @@ extension _LaunchActions on _LauncherHomePageState {
 
   Future<void> _saveClientJava(String value) async {
     final next = _selectedVersionSettings.copyWith(java: value);
-    final name = _selectedVersion?.name ?? '客户端';
+    final name = _selectedVersion?.name ?? _l10n.homeClientFallback;
     await _persistSelectedVersionSettings(
       next,
       message: next.usesOwnJava
-          ? '已为 $name 保存独立 Java：${next.java}'
-          : '已将 $name 的 Java 设置为跟随全局设置。',
+          ? _l10n.homeClientJavaSaved(name, next.java)
+          : _l10n.homeClientJavaFollowGlobal(name),
     );
   }
 
   Future<void> _saveClientMemory(double value) async {
     final next = _selectedVersionSettings.copyWith(memoryGb: value);
-    final name = _selectedVersion?.name ?? '客户端';
+    final name = _selectedVersion?.name ?? _l10n.homeClientFallback;
     await _persistSelectedVersionSettings(
       next,
-      message: '已为 $name 保存独立内存：${value.round()} GB',
+      message: _l10n.homeClientMemorySaved(name, '${value.round()}'),
     );
   }
 
@@ -654,7 +634,7 @@ extension _LaunchActions on _LauncherHomePageState {
       );
       if (runtime == null) {
         throw StateError(
-          '全局设置的 Java 已不存在（$globalSelection），请在设置中重新选择',
+          _l10n.homeGlobalJavaMissing(globalSelection),
         );
       }
       LauncherLog.info('Launch', '使用全局设置的 Java：${runtime.executable}');
@@ -761,9 +741,6 @@ extension _PreferencesActions on _LauncherHomePageState {
         offlinePlayerName: decoded['offlinePlayerName'] is String
             ? decoded['offlinePlayerName'] as String
             : null,
-        microsoftClientId: decoded['microsoftClientId'] is String
-            ? decoded['microsoftClientId'] as String
-            : null,
         thirdPartyAuthServer: decoded['thirdPartyAuthServer'] is String
             ? decoded['thirdPartyAuthServer'] as String
             : null,
@@ -790,9 +767,9 @@ extension _PreferencesActions on _LauncherHomePageState {
             '调试日志=${_debugLoggingEnabled ? '开' : '关'}',
       );
     } on FormatException catch (error) {
-      _showVersionMessage('读取启动器设置失败：${error.message}');
+      _showVersionMessage(_l10n.homeSettingsReadFailed(error.message));
     } on FileSystemException catch (error) {
-      _showVersionMessage('读取启动器设置失败：${error.message}');
+      _showVersionMessage(_l10n.homeSettingsReadFailed(error.message));
     } finally {
       unawaited(_applyDebugLoggingState(openWindow: _debugLoggingEnabled));
     }
@@ -802,20 +779,20 @@ extension _PreferencesActions on _LauncherHomePageState {
     final path = _javaPathController.text.trim();
     if (path.isEmpty) {
       await _java.clearCustomPath();
-      _showVersionMessage('已恢复自动选择 Java。');
+      _showVersionMessage(_l10n.homeJavaAutoRestored);
       return;
     }
     if (!await File(path).exists()) {
-      _showVersionMessage('Java 可执行文件不存在：$path');
+      _showVersionMessage(_l10n.javaPathMissing(path));
       return;
     }
     final runtime = await _java.registerExecutable(path);
     if (runtime == null) {
-      _showVersionMessage('无法识别所选 Java，请确认它是可运行的 Java 可执行文件。');
+      _showVersionMessage(_l10n.homeJavaUnrecognized);
       return;
     }
     _javaPathController.clear();
-    _showVersionMessage('已添加 Java：${runtime.displayName}');
+    _showVersionMessage(_l10n.homeJavaAdded(runtime.displayName));
   }
 
   Future<void> _saveMinecraftSources() async {
@@ -827,9 +804,9 @@ extension _PreferencesActions on _LauncherHomePageState {
     try {
       await _preferences.write(key, value);
     } on FormatException catch (error) {
-      _showVersionMessage('保存启动器设置失败：${error.message}');
+      _showVersionMessage(_l10n.homeSettingsSaveFailed(error.message));
     } on FileSystemException catch (error) {
-      _showVersionMessage('保存启动器设置失败：${error.message}');
+      _showVersionMessage(_l10n.homeSettingsSaveFailed(error.message));
     }
   }
 
@@ -860,7 +837,9 @@ extension _PreferencesActions on _LauncherHomePageState {
     }
     if (!mounted) return;
     _setPageState(() {});
-    _showVersionMessage(enabled ? '调试日志已开启，并已打开独立日志窗口。' : '调试日志已关闭。');
+    _showVersionMessage(
+      enabled ? _l10n.homeDebugEnabled : _l10n.homeDebugDisabled,
+    );
   }
 
   Future<void> _openDebugLogWindow() async {
@@ -915,27 +894,29 @@ extension _PreferencesActions on _LauncherHomePageState {
   Future<void> _pickJavaExecutable() async {
     try {
       final files = await FilePicker.pickFiles(
-        dialogTitle: '选择 Java 可执行文件',
+        dialogTitle: _l10n.homePickJavaTitle,
         type: Platform.isWindows ? FileType.custom : FileType.any,
         allowedExtensions: Platform.isWindows ? ['exe'] : null,
       );
       final path = files.firstOrNull?.path;
       if (path == null || !mounted) return;
       if (!await File(path).exists()) {
-        _showVersionMessage('Java 可执行文件不存在：$path');
+        _showVersionMessage(_l10n.javaPathMissing(path));
         return;
       }
       final runtime = await _java.registerExecutable(path);
       if (!mounted) return;
       _showVersionMessage(
         runtime == null
-            ? '无法识别所选 Java，请确认它是可运行的 Java 可执行文件。'
-            : '已添加 Java：${runtime.displayName}',
+            ? _l10n.homeJavaUnrecognized
+            : _l10n.homeJavaAdded(runtime.displayName),
       );
     } on PlatformException catch (error) {
-      _showVersionMessage('无法选择 Java 文件：${error.message ?? error.code}');
+      _showVersionMessage(
+        _l10n.homePickJavaFailed(error.message ?? error.code),
+      );
     } on FileSystemException catch (error) {
-      _showVersionMessage('无法选择 Java 文件：${error.message}');
+      _showVersionMessage(_l10n.homePickJavaFailed(error.message));
     }
   }
 }

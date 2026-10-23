@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../../core/launcher_log.dart';
 import '../../core/path_manager.dart';
 import '../../core/path_utils.dart';
+import 'database_service.dart';
 
 /// 中文模组名 → 英文标识符（Modrinth ID）查询服务。
 ///
@@ -152,22 +153,22 @@ class ModSearchService {
 
       // 1) 中文名精确匹配。
       final exact = await db.rawQuery(
-        'SELECT $englishIdColumn FROM $tableName '
+        'SELECT $englishIdColumn, $chineseNameColumn FROM $tableName '
         'WHERE $chineseNameColumn = ? '
         "AND $englishIdColumn IS NOT NULL AND $englishIdColumn != ''",
         [keyword],
       );
-      _appendIds(ids, exact, limit);
+      _appendIds(ids, _usableNameRows(exact), limit);
       if (ids.length >= limit) return ids;
 
       // 2) 中文名模糊匹配（LIKE）。
       final nameRows = await db.rawQuery(
-        'SELECT $englishIdColumn FROM $tableName '
+        'SELECT $englishIdColumn, $chineseNameColumn FROM $tableName '
         'WHERE $chineseNameColumn LIKE ? '
         "AND $englishIdColumn IS NOT NULL AND $englishIdColumn != ''",
         ['%$keyword%'],
       );
-      _appendIds(ids, nameRows, limit);
+      _appendIds(ids, _usableNameRows(nameRows), limit);
       if (ids.length >= limit) return ids;
 
       // 3) 描述模糊匹配（LIKE）。
@@ -204,22 +205,22 @@ class ModSearchService {
 
       // 1) 中文名精确匹配。
       final exact = await db.rawQuery(
-        'SELECT $curseForgeIdColumn FROM $tableName '
+        'SELECT $curseForgeIdColumn, $chineseNameColumn FROM $tableName '
         'WHERE $chineseNameColumn = ? '
         "AND $curseForgeIdColumn IS NOT NULL AND $curseForgeIdColumn > 0",
         [keyword],
       );
-      _appendCurseForgeIds(ids, exact, limit);
+      _appendCurseForgeIds(ids, _usableNameRows(exact), limit);
       if (ids.length >= limit) return ids;
 
       // 2) 中文名模糊匹配（LIKE）。
       final nameRows = await db.rawQuery(
-        'SELECT $curseForgeIdColumn FROM $tableName '
+        'SELECT $curseForgeIdColumn, $chineseNameColumn FROM $tableName '
         'WHERE $chineseNameColumn LIKE ? '
         "AND $curseForgeIdColumn IS NOT NULL AND $curseForgeIdColumn > 0",
         ['%$keyword%'],
       );
-      _appendCurseForgeIds(ids, nameRows, limit);
+      _appendCurseForgeIds(ids, _usableNameRows(nameRows), limit);
       if (ids.length >= limit) return ids;
 
       // 3) 描述模糊匹配（LIKE）。
@@ -254,6 +255,17 @@ class ModSearchService {
         if (ids.length >= limit) break;
       }
     }
+  }
+
+  /// Drops rows whose Chinese name is an mcmod wiki entry title such as
+  /// `(物品/方块) Meka工具`, so scraped names never influence search results.
+  List<Map<String, Object?>> _usableNameRows(
+    List<Map<String, Object?>> rows,
+  ) {
+    return rows.where((row) {
+      final name = row[chineseNameColumn];
+      return name is String && cleanChineseTitle(name).isNotEmpty;
+    }).toList();
   }
 
   void _appendIds(

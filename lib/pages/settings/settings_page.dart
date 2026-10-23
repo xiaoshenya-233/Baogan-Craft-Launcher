@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/launcher_log.dart';
 import '../../core/platform_launcher.dart';
 import '../../core/preferences_store.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/installer/game_installer.dart';
 import '../../services/network/api_service.dart';
 import '../../widgets/category_anchor_bar.dart';
@@ -77,17 +78,27 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  static const List<String> _sectionTitles = <String>[
-    '全局游戏默认设置',
-    '游戏资源获取渠道',
-    '个性化与主题',
-    'Java 管理',
-    '调试与日志',
-    '关于与鸣谢',
+  /// Stable section ids; display labels come from the localization files.
+  static const List<String> _sectionIds = <String>[
+    'gameDefaults',
+    'channels',
+    'appearance',
+    'java',
+    'debug',
+    'about',
   ];
 
   final Map<String, GlobalKey> _sectionKeys = <String, GlobalKey>{
-    for (final title in _sectionTitles) title: GlobalKey(debugLabel: title),
+    for (final id in _sectionIds) id: GlobalKey(debugLabel: id),
+  };
+
+  String _sectionLabel(String id, AppLocalizations l10n) => switch (id) {
+    'gameDefaults' => l10n.settingsSectionGameDefaults,
+    'channels' => l10n.settingsSectionChannels,
+    'appearance' => l10n.settingsSectionAppearance,
+    'java' => l10n.settingsSectionJava,
+    'debug' => l10n.settingsSectionDebug,
+    _ => l10n.settingsSectionAbout,
   };
 
   /// When true the tab shows the embedded Java management page instead of the
@@ -102,6 +113,15 @@ class _SettingsPageState extends State<SettingsPage> {
   Color get _selectedForegroundColor => _palette.selectedForegroundColor;
 
   void _showVersionMessage(String message) => widget.onMessage(message);
+
+  String _appearanceModeLabel(
+    LauncherAppearanceMode mode,
+    AppLocalizations l10n,
+  ) => switch (mode) {
+    LauncherAppearanceMode.dark => l10n.settingsThemeDark,
+    LauncherAppearanceMode.light => l10n.settingsThemeLight,
+    LauncherAppearanceMode.automatic => l10n.settingsThemeAuto,
+  };
 
   Widget _translucentButton(Widget button, {double radius = 10}) {
     return TranslucentButtonSurface(radius: radius, child: button);
@@ -172,6 +192,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildSettings() {
+    final l10n = AppLocalizations.of(context)!;
     if (_showJavaManagement) {
       return JavaManagementPage(
         palette: _palette,
@@ -180,7 +201,7 @@ class _SettingsPageState extends State<SettingsPage> {
         onPick: widget.onPickJava,
         onRemove: (executable) {
           widget.java.removeRuntime(executable);
-          widget.onMessage('已从 Java 列表移除：$executable');
+          widget.onMessage(l10n.settingsJavaRemoved(executable));
         },
         onMessage: widget.onMessage,
         onBack: _closeJavaManagementPage,
@@ -203,7 +224,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '设置',
+                    AppLocalizations.of(context)!.navSettings,
                     style: TextStyle(
                       fontSize: compact ? 26 : 32,
                       fontWeight: FontWeight.w800,
@@ -211,13 +232,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '自定义启动器外观与使用体验。',
+                    l10n.settingsSubtitle,
                     style: TextStyle(color: _muted, fontSize: 13),
                   ),
                   const SizedBox(height: 22),
                   _buildBgucSection(
-                    title: '全局游戏默认设置',
-                    anchor: '全局游戏默认设置',
+                    title: l10n.settingsSectionGameDefaults,
+                    anchor: 'gameDefaults',
                     icon: Icons.tune_rounded,
                     child: GameDefaultsCard(
                       palette: _palette,
@@ -228,8 +249,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 14),
                   _buildBgucSection(
-                    title: '游戏资源获取渠道',
-                    anchor: '游戏资源获取渠道',
+                    title: l10n.settingsSectionChannels,
+                    anchor: 'channels',
                     icon: Icons.cloud_download_outlined,
                     child: ResourceChannelCard(
                       palette: _palette,
@@ -245,14 +266,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 14),
                   _buildBgucSection(
-                    title: '个性化与主题',
-                    anchor: '个性化与主题',
+                    title: l10n.settingsSectionAppearance,
+                    anchor: 'appearance',
                     icon: Icons.palette_outlined,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '主题模式',
+                          l10n.settingsThemeMode,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -260,7 +281,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          '自动模式根据本地时间和日出日落切换主题。',
+                          l10n.settingsThemeModeHint,
                           style: TextStyle(fontSize: 11, color: _muted),
                         ),
                         const SizedBox(height: 10),
@@ -281,7 +302,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ? _muted
                                       : const Color(0xFF52614F),
                                 ),
-                                label: Text(mode.label),
+                                label: Text(_appearanceModeLabel(mode, l10n)),
                                 selected: selected,
                                 onSelected: (_) =>
                                     widget.appearance.setAppearanceMode(mode),
@@ -315,27 +336,43 @@ class _SettingsPageState extends State<SettingsPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '本地时区 UTC${widget.appearance.formatOffset(DateTime.now().timeZoneOffset)}'
-                                  ' · 推算经度 ${widget.appearance.estimatedLongitude().toStringAsFixed(1)}°',
+                                  l10n.settingsTimeZone(
+                                    widget.appearance.formatOffset(
+                                      DateTime.now().timeZoneOffset,
+                                    ),
+                                    widget.appearance
+                                        .estimatedLongitude()
+                                        .toStringAsFixed(1),
+                                  ),
                                   style: TextStyle(fontSize: 11, color: _muted),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '位置仅按时区估算（纬度按赤道近似），仅供参考；联网失败时使用 06:30 / 18:30。',
+                                  l10n.settingsSolarApprox,
                                   style: TextStyle(fontSize: 10, color: _muted),
                                 ),
                                 const SizedBox(height: 5),
                                 Text(
-                                  '日出 ${widget.appearance.formatMinutes(widget.appearance.sunriseMinute)}'
-                                  '  ·  日落 ${widget.appearance.formatMinutes(widget.appearance.sunsetMinute)}'
-                                  '  ·  ${widget.appearance.solarTimesOnline ? '联网获取' : '默认时间'}',
+                                  l10n.settingsSunriseSunset(
+                                    widget.appearance.formatMinutes(
+                                      widget.appearance.sunriseMinute,
+                                    ),
+                                    widget.appearance.formatMinutes(
+                                      widget.appearance.sunsetMinute,
+                                    ),
+                                    widget.appearance.solarTimesOnline
+                                        ? l10n.settingsSolarOnline
+                                        : l10n.settingsSolarDefault,
+                                  ),
                                   style: TextStyle(fontSize: 11),
                                 ),
                                 if (widget.appearance.solarTimesError !=
                                     null) ...[
                                   const SizedBox(height: 5),
                                   Text(
-                                    '${widget.appearance.solarTimesError!}，当前使用 06:30 / 18:30。',
+                                    l10n.settingsSolarError(
+                                      widget.appearance.solarTimesError!,
+                                    ),
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: _muted,
@@ -345,7 +382,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 if (widget.appearance.isLoadingSolarTimes) ...[
                                   const SizedBox(height: 5),
                                   Text(
-                                    '正在检测日出日落时间…',
+                                    l10n.settingsCheckingSolar,
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: _muted,
@@ -369,7 +406,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         Icons.refresh_rounded,
                                         size: 16,
                                       ),
-                                      label: Text('刷新日出日落'),
+                                      label: Text(l10n.settingsRefreshSolar),
                                     ),
                                   ),
                                 ),
@@ -377,11 +414,11 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
                         ],
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 18),
                         Divider(color: _panelBorderColor),
                         const SizedBox(height: 16),
                         Text(
-                          '壁纸',
+                          AppLocalizations.of(context)!.settingsLanguage,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -389,7 +426,24 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          '分别为亮色和深色主题设置壁纸，切换主题时自动切换对应图片。',
+                          AppLocalizations.of(context)!.settingsLanguageHint,
+                          style: TextStyle(fontSize: 11, color: _muted),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildLanguageSelector(),
+                        const SizedBox(height: 24),
+                        Divider(color: _panelBorderColor),
+                        const SizedBox(height: 16),
+                        Text(
+                          l10n.settingsWallpaper,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          l10n.settingsWallpaperHint,
                           style: TextStyle(fontSize: 11, color: _muted),
                         ),
                         const SizedBox(height: 14),
@@ -401,8 +455,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 14),
                   _buildBgucSection(
-                    title: 'Java 管理',
-                    anchor: 'Java 管理',
+                    title: l10n.settingsSectionJava,
+                    anchor: 'java',
                     icon: Icons.memory_rounded,
                     child: JavaSummaryCard(
                       palette: _palette,
@@ -429,7 +483,14 @@ class _SettingsPageState extends State<SettingsPage> {
               left: 0,
               right: 0,
               bottom: 24,
-              child: Center(child: CategoryAnchorBar(anchors: _sectionKeys)),
+              child: Center(
+                child: CategoryAnchorBar(
+                  anchors: {
+                    for (final entry in _sectionKeys.entries)
+                      _sectionLabel(entry.key, l10n): entry.value,
+                  },
+                ),
+              ),
             ),
           ],
         );
@@ -437,21 +498,74 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildLanguageSelector() {
+    final l10n = AppLocalizations.of(context)!;
+    final currentCode = widget.appearance.locale.languageCode;
+    final selectedCode = PreferencesStore.supportedLanguages.contains(currentCode)
+        ? currentCode
+        : PreferencesStore.defaultLanguage;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        width: 220,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          decoration: BoxDecoration(
+            color: _usesDarkPalette
+                ? const Color(0x22101510)
+                : const Color(0xFFF1F4ED),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _panelBorderColor),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: selectedCode,
+              isDense: true,
+              isExpanded: true,
+              borderRadius: BorderRadius.circular(10),
+              dropdownColor: _palette.panelColor,
+              icon: Icon(Icons.expand_more_rounded, size: 18, color: _muted),
+              style: TextStyle(
+                fontSize: 12,
+                color: _usesDarkPalette ? Colors.white : const Color(0xFF26351F),
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: 'zh',
+                  child: Text(l10n.settingsLanguageZh),
+                ),
+                DropdownMenuItem(
+                  value: 'en',
+                  child: Text(l10n.settingsLanguageEn),
+                ),
+              ],
+              onChanged: (code) {
+                if (code == null) return;
+                widget.appearance.setLocale(Locale(code));
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAboutSection() {
+    final l10n = AppLocalizations.of(context)!;
     return _buildBgucSection(
-      title: '关于与鸣谢',
-      anchor: '关于与鸣谢',
+      title: l10n.settingsSectionAbout,
+      anchor: 'about',
       icon: Icons.info_outline_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Baogan Craft Launcher · 版本 $launcherVersion',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          Text(
+            l10n.aboutVersion(launcherVersion),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
-            '本项目基于 GPLv3 协议开源，感谢 PCL2、HMCL、XMCL 与 BMCLAPI 等开源项目。',
+            l10n.aboutLicenseDescription,
             style: TextStyle(fontSize: 11, color: _muted),
           ),
           const SizedBox(height: 12),
@@ -465,7 +579,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   Icons.volunteer_activism_outlined,
                   size: 18,
                 ),
-                label: const Text('开源协议与鸣谢'),
+                label: Text(l10n.aboutLicenseButton),
               ),
               _translucentButton(
                 OutlinedButton.icon(
@@ -473,11 +587,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     try {
                       await PlatformLauncher.openUrl(launcherRepoUrl);
                     } on Object catch (error) {
-                      _showVersionMessage('无法打开浏览器：$error');
+                      _showVersionMessage(l10n.settingsOpenBrowserFailed('$error'));
                     }
                   },
                   icon: const Icon(Icons.open_in_new_rounded, size: 17),
-                  label: const Text('GitHub 仓库'),
+                  label: Text(l10n.aboutRepoButton),
                 ),
               ),
             ],
@@ -488,10 +602,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildDebugLogSettings() {
+    final l10n = AppLocalizations.of(context)!;
     final logPath = LauncherLog.filePath;
     return _buildBgucSection(
-      title: '调试与日志',
-      anchor: '调试与日志',
+      title: l10n.settingsSectionDebug,
+      anchor: 'debug',
       icon: Icons.bug_report_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,7 +618,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '调试模式',
+                      l10n.settingsDebugMode,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -511,8 +626,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '默认开启。记录启动器操作、下载、版本扫描、启动参数和游戏进程输出；'
-                      '日志窗口独立于启动器运行，便于观察完整过程。',
+                      l10n.settingsDebugDescription,
                       style: TextStyle(fontSize: 11, color: _muted),
                     ),
                   ],
@@ -527,7 +641,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            logPath ?? '日志文件尚未初始化。',
+            logPath ?? l10n.settingsLogNotReady,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 10, color: _muted),
@@ -543,7 +657,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ? () => widget.onOpenDebugLogWindow()
                       : null,
                   icon: const Icon(Icons.open_in_new_rounded, size: 17),
-                  label: const Text('打开日志窗口'),
+                  label: Text(l10n.settingsOpenLogWindow),
                 ),
               ),
               _translucentButton(
@@ -555,11 +669,13 @@ class _SettingsPageState extends State<SettingsPage> {
                             await File(logPath).parent.create(recursive: true);
                             await openLocalDirectory(File(logPath).parent.path);
                           } catch (error) {
-                            _showVersionMessage('无法打开日志文件夹：$error');
+                            _showVersionMessage(
+                              l10n.settingsOpenLogFailed('$error'),
+                            );
                           }
                         },
                   icon: const Icon(Icons.folder_open_outlined, size: 17),
-                  label: const Text('打开日志文件夹'),
+                  label: Text(l10n.settingsOpenLogFolder),
                 ),
               ),
               _translucentButton(
@@ -568,7 +684,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ? widget.onRecordState
                       : null,
                   icon: const Icon(Icons.note_add_outlined, size: 17),
-                  label: const Text('记录当前状态'),
+                  label: Text(l10n.settingsRecordState),
                 ),
               ),
               if (widget.debugLogWindowOpen)
@@ -576,7 +692,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   OutlinedButton.icon(
                     onPressed: () => widget.onCloseDebugLogWindow(),
                     icon: const Icon(Icons.close_rounded, size: 17),
-                    label: const Text('关闭日志窗口'),
+                    label: Text(l10n.settingsCloseLogWindow),
                   ),
                 ),
             ],
@@ -586,14 +702,26 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  String _wallpaperModeLabel(
+    WallpaperDisplayMode mode,
+    AppLocalizations l10n,
+  ) => switch (mode) {
+    WallpaperDisplayMode.cover => l10n.settingsWallpaperCover,
+    WallpaperDisplayMode.stretch => l10n.settingsWallpaperStretch,
+    WallpaperDisplayMode.zoom => l10n.settingsWallpaperZoom,
+  };
+
   Widget _buildWallpaperModeControls({required bool dark}) {
+    final l10n = AppLocalizations.of(context)!;
     final path = dark
         ? widget.appearance.darkWallpaperPath
         : widget.appearance.lightWallpaperPath;
     final displayMode = dark
         ? widget.appearance.darkWallpaperDisplayMode
         : widget.appearance.lightWallpaperDisplayMode;
-    final modeLabel = dark ? '深色模式壁纸' : '亮色模式壁纸';
+    final modeLabel = dark
+        ? l10n.settingsDarkWallpaper
+        : l10n.settingsLightWallpaper;
 
     return Container(
       width: double.infinity,
@@ -614,14 +742,17 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 5),
           Text(
-            path ?? '尚未选择；未设置时会暂用另一主题的壁纸。',
+            path ?? l10n.settingsWallpaperNone,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 10, color: _muted),
           ),
           if (path != null) ...[
             const SizedBox(height: 12),
-            Text('壁纸效果', style: TextStyle(fontSize: 11, color: _muted)),
+            Text(
+              l10n.settingsWallpaperEffect,
+              style: TextStyle(fontSize: 11, color: _muted),
+            ),
             const SizedBox(height: 7),
             Wrap(
               spacing: 8,
@@ -630,7 +761,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 final selected = displayMode == mode;
                 return _translucentButton(
                   ChoiceChip(
-                    label: Text(mode.label),
+                    label: Text(_wallpaperModeLabel(mode, l10n)),
                     selected: selected,
                     onSelected: (_) => widget.appearance
                         .setWallpaperDisplayMode(dark: dark, mode: mode),
@@ -654,14 +785,18 @@ class _SettingsPageState extends State<SettingsPage> {
               FilledButton.icon(
                 onPressed: () => widget.onChooseWallpaper(dark),
                 icon: Icon(Icons.wallpaper_outlined),
-                label: Text(path == null ? '选择图片' : '更换图片'),
+                label: Text(
+                  path == null
+                      ? l10n.settingsChooseImage
+                      : l10n.settingsChangeImage,
+                ),
               ),
               if (path != null)
                 _translucentButton(
                   OutlinedButton.icon(
                     onPressed: () => widget.onRecropWallpaper(dark),
                     icon: Icon(Icons.crop_outlined),
-                    label: Text('重新裁切'),
+                    label: Text(l10n.settingsRecrop),
                   ),
                 ),
               if (path != null)
@@ -669,10 +804,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   OutlinedButton.icon(
                     onPressed: () {
                       widget.onResetWallpaper(dark);
-                      _showVersionMessage('已恢复${dark ? '深色' : '亮色'}模式默认背景。');
+                      _showVersionMessage(
+                        l10n.settingsResetDone(
+                          dark
+                              ? l10n.settingsThemeDark
+                              : l10n.settingsThemeLight,
+                        ),
+                      );
                     },
                     icon: Icon(Icons.restart_alt_rounded),
-                    label: Text('恢复默认'),
+                    label: Text(l10n.settingsResetWallpaper),
                   ),
                 ),
             ],

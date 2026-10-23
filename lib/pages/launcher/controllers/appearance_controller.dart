@@ -20,6 +20,27 @@ const String _lightWallpaperModeKey = 'lightWallpaperDisplayMode';
 const String _darkWallpaperModeKey = 'darkWallpaperDisplayMode';
 const Rect _fullCrop = Rect.fromLTWH(0, 0, 1, 1);
 
+/// UI language used before the persisted preference is read.
+const Locale launcherDefaultLocale = Locale('zh');
+
+/// Maps a system locale to a shipped launcher locale.
+///
+/// Chinese systems keep Chinese; every other system language falls back to
+/// English. The result drives the first launch, before any preference exists.
+Locale detectLauncherLocale(Locale systemLocale) {
+  return systemLocale.languageCode.toLowerCase() == 'zh'
+      ? const Locale('zh')
+      : const Locale('en');
+}
+
+/// Locale consumed by the launcher's `MaterialApp`.
+///
+/// It lives outside the controller because `MaterialApp` is built above the
+/// page that owns [AppearanceController], so it cannot listen to it directly.
+final ValueNotifier<Locale> launcherLocale = ValueNotifier<Locale>(
+  launcherDefaultLocale,
+);
+
 enum LauncherAppearanceMode {
   dark('深色', Icons.dark_mode_outlined),
   light('亮色', Icons.light_mode_outlined),
@@ -47,6 +68,7 @@ class AppearanceController extends ChangeNotifier {
   Rect _darkWallpaperCrop = const Rect.fromLTWH(0, 0, 1, 1);
   WallpaperDisplayMode _darkWallpaperDisplayMode = WallpaperDisplayMode.cover;
   LauncherAppearanceMode _appearanceMode = LauncherAppearanceMode.automatic;
+  Locale _locale = launcherDefaultLocale;
   int _sunriseMinute = launcherDefaultSunriseMinute;
   int _sunsetMinute = launcherDefaultSunsetMinute;
   bool _solarTimesOnline = false;
@@ -69,6 +91,52 @@ class AppearanceController extends ChangeNotifier {
       _lightWallpaperDisplayMode;
   WallpaperDisplayMode get darkWallpaperDisplayMode =>
       _darkWallpaperDisplayMode;
+
+  /// Currently selected UI language.
+  Locale get locale => _locale;
+
+  /// Switches the UI language immediately and persists the choice.
+  set locale(Locale value) => setLocale(value);
+
+  /// Restores the persisted UI language without rewriting preferences.
+  ///
+  /// When the player never picked a language, the system locale detected before
+  /// `runApp` (already stored in [launcherLocale]) decides between Chinese and
+  /// English. A saved choice always wins.
+  Future<void> loadLanguagePreference({Locale? systemLocale}) async {
+    final stored = await _preferences.readLanguageOrNull();
+    if (stored != null) {
+      _applyLocale(Locale(stored), persist: false);
+      return;
+    }
+    _applyLocale(
+      detectLauncherLocale(systemLocale ?? launcherLocale.value),
+      persist: false,
+    );
+  }
+
+  /// Applies [locale], falling back to Chinese for unsupported languages.
+  void setLocale(Locale locale) {
+    _applyLocale(normalizeLocale(locale), persist: true);
+  }
+
+  /// Normalizes [locale] to one of the languages shipped with the launcher.
+  static Locale normalizeLocale(Locale locale) {
+    final code = locale.languageCode.toLowerCase();
+    return PreferencesStore.supportedLanguages.contains(code)
+        ? Locale(code)
+        : launcherDefaultLocale;
+  }
+
+  void _applyLocale(Locale locale, {required bool persist}) {
+    final changed = _locale != locale;
+    _locale = locale;
+    if (launcherLocale.value != locale) launcherLocale.value = locale;
+    if (persist) {
+      unawaited(_preferences.setLanguage(locale.languageCode));
+    }
+    if (changed) notifyListeners();
+  }
 
   /// Restores wallpaper paths, crops and display modes from preferences.
   Future<void> loadWallpaperPreferences() async {

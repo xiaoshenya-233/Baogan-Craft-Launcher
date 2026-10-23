@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../services/java/java_service.dart';
 import '../launcher/controllers/java_environment_controller.dart';
 import '../launcher/launcher_palette.dart';
@@ -49,13 +50,14 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
   }
 
   Future<void> _applyTypedPath() async {
+    final l10n = AppLocalizations.of(context)!;
     final path = _pathController.text.trim();
     if (path.isEmpty) {
-      widget.onMessage('请先填写 Java 可执行文件的完整路径。');
+      widget.onMessage(l10n.javaEnterPath);
       return;
     }
     if (!await File(path).exists()) {
-      widget.onMessage('Java 可执行文件不存在：$path');
+      widget.onMessage(l10n.javaPathMissing(path));
       return;
     }
     setState(() => _isAdding = true);
@@ -63,16 +65,17 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
     if (!mounted) return;
     setState(() => _isAdding = false);
     if (runtime == null) {
-      widget.onMessage('无法识别该 Java，请确认路径指向 java.exe。');
+      widget.onMessage(l10n.javaUnrecognized);
       return;
     }
     _pathController.clear();
-    widget.onMessage('已添加到 Java 列表：${runtime.executable}');
+    widget.onMessage(l10n.javaAdded(runtime.executable));
   }
 
   @override
   Widget build(BuildContext context) {
     final palette = widget.palette;
+    final l10n = AppLocalizations.of(context)!;
     return Material(
       color: Colors.transparent,
       child: Column(
@@ -83,14 +86,17 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
             child: Row(
               children: [
                 IconButton(
-                  tooltip: '返回设置',
+                  tooltip: l10n.javaBackToSettings,
                   onPressed: widget.onBack,
                   icon: const Icon(Icons.arrow_back_rounded),
                 ),
                 const SizedBox(width: 4),
-                const Text(
-                  'Java 管理',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                Text(
+                  l10n.javaPageTitle,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ],
             ),
@@ -104,8 +110,7 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
                   padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
                   children: [
               Text(
-                '扫描本机 Java 或手动添加可执行文件。此页面只维护列表，'
-                '默认使用哪个 Java 请在设置页的 Java 下拉框中选择。',
+                l10n.javaPageSubtitle,
                 style: TextStyle(fontSize: 12, color: palette.muted),
               ),
               const SizedBox(height: 16),
@@ -116,12 +121,12 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
                   FilledButton.icon(
                     onPressed: java.isLoading ? null : widget.onDiscover,
                     icon: const Icon(Icons.manage_search_rounded, size: 16),
-                    label: const Text('自动扫描'),
+                    label: Text(l10n.javaAutoScan),
                   ),
                   OutlinedButton.icon(
                     onPressed: widget.onPick,
                     icon: const Icon(Icons.add_rounded, size: 16),
-                    label: const Text('手动添加路径'),
+                    label: Text(l10n.javaAddPath),
                   ),
                 ],
               ),
@@ -143,8 +148,8 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Text(
                     java.hasSearched
-                        ? '未检测到可用 Java，请手动添加路径。'
-                        : '尚未扫描 Java，点击“自动扫描”开始。',
+                        ? l10n.javaNoRuntime
+                        : l10n.javaNotScanned,
                     style: TextStyle(fontSize: 11.5, color: palette.muted),
                   ),
                 )
@@ -164,6 +169,7 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
   }
 
   Widget _buildRuntimeTile(JavaRuntime runtime, LauncherPalette palette) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
@@ -201,7 +207,7 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
             ),
           ),
           IconButton(
-            tooltip: '从列表移除（不会删除本地文件）',
+            tooltip: l10n.javaRemoveTooltip,
             onPressed: () => widget.onRemove(runtime.executable),
             icon: Icon(
               Icons.delete_outline_rounded,
@@ -215,6 +221,7 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
   }
 
   Widget _buildCustomPathCard(LauncherPalette palette) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -226,13 +233,13 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '手动添加 Java 路径',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          Text(
+            l10n.javaDialogTitle,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(
-            '填写 java.exe 的完整路径；仅加入列表，不会自动设为默认。',
+            l10n.javaDialogHint,
             style: TextStyle(fontSize: 10.5, color: palette.muted),
           ),
           const SizedBox(height: 10),
@@ -241,14 +248,14 @@ class _JavaManagementPageState extends State<JavaManagementPage> {
             style: const TextStyle(fontSize: 12),
             decoration: InputDecoration(
               isDense: true,
-              hintText: r'例如 C:\Program Files\Java\jdk-17\bin\java.exe',
+              hintText: l10n.javaPathExample,
               hintStyle: TextStyle(fontSize: 11.5, color: palette.muted),
               border: const OutlineInputBorder(),
               suffixIcon: Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: TextButton(
                   onPressed: _isAdding ? null : _applyTypedPath,
-                  child: Text(_isAdding ? '检测中…' : '添加'),
+                  child: Text(_isAdding ? l10n.javaDetecting : l10n.actionAdd),
                 ),
               ),
             ),

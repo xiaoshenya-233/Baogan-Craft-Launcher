@@ -1,0 +1,765 @@
+{
+  "@@locale": "zh",
+  "appTitle": "Baogan Craft Launcher",
+  "@appTitle": {
+    "description": "Window title of the launcher."
+  },
+  "navGroupLauncher": "启动器",
+  "@navGroupLauncher": {
+    "description": "Sidebar group label for the main launcher pages."
+  },
+  "navHome": "主页",
+  "navVersions": "版本管理",
+  "navDownloads": "资源下载",
+  "navSettings": "设置",
+  "navTools": "实用工具",
+  "navTasks": "下载任务",
+  "navWorkbench": "工作台",
+  "settingsLanguage": "语言 (Language)",
+  "@settingsLanguage": {
+    "description": "Title of the language selector in the settings page."
+  },
+  "settingsLanguageHint": "切换后立即生效，并保存到本机。",
+  "@settingsLanguageHint": {
+    "description": "Helper text under the language selector."
+  },
+  "settingsLanguageZh": "简体中文",
+  "settingsLanguageEn": "English",
+  "setupTitle": "选择启动器根目录",
+  "@setupTitle": {
+    "description": "Title of the first-launch setup card and of the folder picker dialog."
+  },
+  "setupSubtitle": "首次启动必须完成目录设置，配置完成前不会创建日志、数据库或缓存文件。",
+  "setupDirectoryExampleTitle": "例如选择 E:\\Games 后，将创建：",
+  "setupInvalidDirectory": "必须选择一个有效的启动器根目录才能继续。",
+  "setupCreateFailed": "无法创建启动器目录：{error}",
+  "@setupCreateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "setupWritableHint": "请确认启动器程序目录可写，且所选磁盘有足够空间。",
+  "setupPickerUnavailable": "文件夹选择器无法打开（{error}）。请直接输入根目录的完整路径。",
+  "@setupPickerUnavailable": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "setupPathHint": "例如 E:\\Games",
+  "setupUseThisFolder": "使用此目录",
+  "setupSelectFolder": "选择根目录",
+  "setupCreatingFolder": "正在创建目录…",
+  "setupCancelHint": "取消文件夹选择不会进入主界面，请重新选择。",
+  "actionCancel": "取消",
+  "actionMinimize": "最小化",
+  "actionClose": "关闭",
+  "networkCheckTitle": "网络环境检测失败",
+  "networkCheckMessage": "无法确认当前网络环境，下载功能暂不可用。请检查网络或系统代理设置后重试。",
+  "networkCheckRetryFailed": "网络检测仍然失败，请检查网络或系统代理设置后重试。",
+  "networkStartFailed": "启动失败：{error}",
+  "@networkStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "networkChecking": "正在检测…",
+  "actionRetry": "重试",
+  "windowMinimize": "最小化",
+  "windowRestore": "还原",
+  "windowMaximize": "最大化",
+  "windowClose": "关闭",
+  "homeCurrentClient": "当前客户端",
+  "homeScanningClients": "正在扫描客户端…",
+  "homeNoClientSelected": "尚未选择客户端",
+  "homeSelectClientHint": "点击下方客户端卡片选择要启动的客户端版本。",
+  "commonUnknown": "未知",
+  "homeLoginMethod": "登录方式",
+  "homeCurrentAccount": "当前账号",
+  "homeManageAccount": "{type} · 点击管理账号",
+  "@homeManageAccount": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "homePlayerName": "玩家：{name}",
+  "@homePlayerName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeMicrosoftHint": "点击后立即显示设备码，登录 Microsoft 账号",
+  "homeAuthSwitched": "登录方式已切换为 {mode}。",
+  "@homeAuthSwitched": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "homeMicrosoftSignedIn": "已登录 Microsoft 账号：{name}，启动时将直接使用该账号。",
+  "@homeMicrosoftSignedIn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSelectClient": "选择客户端",
+  "homeClickSelectClient": "点击选择已安装客户端",
+  "homeVersionUnknown": "版本未知",
+  "homeSwitch": "切换",
+  "homeViewClientConfig": "查看客户端配置",
+  "homeSelectClientFirst": "请先选择一个客户端。",
+  "homeVersionTypeUnknown": "版本类型未知",
+  "homeLaunchGame": "开始游戏",
+  "homeNoClient": "未选择客户端",
+  "versionVanilla": "原版",
+  "homeJavaAutoDetected": "自动匹配（已检测 {count} 个）",
+  "@homeJavaAutoDetected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeJavaAutoLaunch": "启动时自动匹配",
+  "homeLocalProfile": "本地档案 · {name}",
+  "@homeLocalProfile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeMicrosoftAccount": "Microsoft 登录",
+  "homeThirdPartyAccount": "第三方验证",
+  "accountManagerTitle": "账号管理",
+  "accountCount": "共 {count} 个账号",
+  "@accountCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "accountManagerEmpty": "还没有保存的账号。点击下方按钮添加 Microsoft、本地档案或第三方账号。",
+  "accountAddNew": "添加新账号",
+  "accountCurrent": "当前使用",
+  "accountRemoveTitle": "移除账号",
+  "accountRemoveConfirm": "确定要从启动器移除「{name}」吗？",
+  "@accountRemoveConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountRemoveHint": "本机保存的加密登录凭据也会一并清除。",
+  "actionRemove": "移除",
+  "settingsSubtitle": "自定义启动器外观与使用体验。",
+  "settingsSectionGameDefaults": "全局游戏默认设置",
+  "settingsSectionChannels": "游戏资源获取渠道",
+  "settingsSectionAppearance": "个性化与主题",
+  "settingsSectionJava": "Java 管理",
+  "settingsSectionDebug": "调试与日志",
+  "settingsSectionAbout": "关于与鸣谢",
+  "settingsJavaRemoved": "已从 Java 列表移除：{path}",
+  "@settingsJavaRemoved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsThemeMode": "主题模式",
+  "settingsThemeModeHint": "自动模式根据本地时间和日出日落切换主题。",
+  "settingsThemeDark": "深色",
+  "settingsThemeLight": "亮色",
+  "settingsThemeAuto": "日出日落自动",
+  "settingsTimeZone": "本地时区 UTC{offset} · 推算经度 {longitude}°",
+  "@settingsTimeZone": {
+    "placeholders": {
+      "offset": {
+        "type": "String"
+      },
+      "longitude": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSolarApprox": "位置仅按时区估算（纬度按赤道近似），仅供参考；联网失败时使用 06:30 / 18:30。",
+  "settingsSunriseSunset": "日出 {sunrise}  ·  日落 {sunset}  ·  {source}",
+  "@settingsSunriseSunset": {
+    "placeholders": {
+      "sunrise": {
+        "type": "String"
+      },
+      "sunset": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSolarOnline": "联网获取",
+  "settingsSolarDefault": "默认时间",
+  "settingsSolarError": "{error}，当前使用 06:30 / 18:30。",
+  "@settingsSolarError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsCheckingSolar": "正在检测日出日落时间…",
+  "settingsRefreshSolar": "刷新日出日落",
+  "settingsWallpaper": "壁纸",
+  "settingsWallpaperHint": "分别为亮色和深色主题设置壁纸，切换主题时自动切换对应图片。",
+  "settingsDarkWallpaper": "深色模式壁纸",
+  "settingsLightWallpaper": "亮色模式壁纸",
+  "settingsWallpaperNone": "尚未选择；未设置时会暂用另一主题的壁纸。",
+  "settingsWallpaperEffect": "壁纸效果",
+  "settingsWallpaperCover": "铺满",
+  "settingsWallpaperStretch": "拉伸",
+  "settingsWallpaperZoom": "放大",
+  "settingsChooseImage": "选择图片",
+  "settingsChangeImage": "更换图片",
+  "settingsRecrop": "重新裁切",
+  "settingsResetWallpaper": "恢复默认",
+  "settingsResetDone": "已恢复{mode}模式默认背景。",
+  "@settingsResetDone": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsDebugMode": "调试模式",
+  "settingsDebugDescription": "默认开启。记录启动器操作、下载、版本扫描、启动参数和游戏进程输出；日志窗口独立于启动器运行，便于观察完整过程。",
+  "settingsLogNotReady": "日志文件尚未初始化。",
+  "settingsOpenLogWindow": "打开日志窗口",
+  "settingsOpenLogFolder": "打开日志文件夹",
+  "settingsRecordState": "记录当前状态",
+  "settingsCloseLogWindow": "关闭日志窗口",
+  "settingsOpenLogFailed": "无法打开日志文件夹：{error}",
+  "@settingsOpenLogFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsOpenBrowserFailed": "无法打开浏览器：{error}",
+  "@settingsOpenBrowserFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutVersion": "Baogan Craft Launcher · 版本 {version}",
+  "@aboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutLicenseDescription": "本项目基于 GPLv3 协议开源，感谢 PCL2、HMCL、XMCL 与 BMCLAPI 等开源项目。",
+  "aboutLicenseButton": "开源协议与鸣谢",
+  "aboutRepoButton": "GitHub 仓库",
+  "actionDefault": "默认",
+  "channelClientSource": "客户端下载源",
+  "channelClientSourceHint": "游戏文件下载来源；版本与加载器信息始终由 BMCLAPI 提供。",
+  "channelModSource": "模组资源源",
+  "channelMcimHint": "启用 MCIM 后 CurseForge 请求会走 mod.mcimirror.top 镜像。",
+  "channelAggregate": "聚合搜索偏好",
+  "channelAggregateHint": "同一模组同时出现在 Modrinth 与 CurseForge 时，只保留偏向平台的一条。",
+  "sourceMojang": "Mojang 官方",
+  "sourceBmclapi": "BMCLAPI 加速",
+  "sourceMcim": "MCIM 镜像站",
+  "aggregateBalanced": "全部显示",
+  "aggregateModrinth": "偏向 Modrinth",
+  "aggregateCurseForge": "偏向 CurseForge",
+  "settingsDefaultsHint": "这些默认值用于新建客户端；已单独配置的客户端仍使用各自的设置。",
+  "settingsDefaultJava": "默认 Java",
+  "settingsJavaAutoChoice": "根据游戏版本自动设定",
+  "settingsJavaAutoHint": "选择「根据游戏版本自动设定」时，启动器会按客户端声明的 Java 版本自动匹配。",
+  "settingsDefaultMemory": "默认内存分配",
+  "settingsMemoryPlaceholder": "仅用于界面占位，尚未写入启动参数。",
+  "javaNoneDetected": "尚未检测到 Java。点击「管理 Java」扫描本机或手动添加。",
+  "javaCurrent": "当前使用",
+  "actionManageJava": "管理 Java",
+  "aboutVersionLabel": "版本 {version} · GPLv3 开源",
+  "@aboutVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutLicenseTitle": "开源协议",
+  "aboutLicenseBody": "本项目基于 GPLv3 协议开源：你可以自由使用、修改与分发，但衍生作品必须同样以 GPLv3 开放源代码，并保留原始版权声明。",
+  "aboutCreditsTitle": "核心鸣谢",
+  "aboutThanks": "感谢所有开源项目与社区贡献者。",
+  "aboutCreditsPcl": "Plain Craft Launcher 2 · 界面交互与整合包安装流程参考",
+  "aboutCreditsHmcl": "Hello Minecraft! Launcher · 加载器识别与 Java 管理思路参考",
+  "aboutCreditsXmcl": "X Minecraft Launcher · 资源管理与视觉设计参考",
+  "aboutCreditsBmclapi": "提供 Minecraft 资源下载加速服务",
+  "javaEnterPath": "请先填写 Java 可执行文件的完整路径。",
+  "javaPathMissing": "Java 可执行文件不存在：{path}",
+  "@javaPathMissing": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "javaUnrecognized": "无法识别该 Java，请确认路径指向 java.exe。",
+  "javaAdded": "已添加到 Java 列表：{path}",
+  "@javaAdded": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "javaBackToSettings": "返回设置",
+  "javaPageTitle": "Java 管理",
+  "javaPageSubtitle": "扫描本机 Java 或手动添加可执行文件。此页面只维护列表，默认使用哪个 Java 请在设置页的 Java 下拉框中选择。",
+  "javaAutoScan": "自动扫描",
+  "javaAddPath": "手动添加路径",
+  "javaNoRuntime": "未检测到可用 Java，请手动添加路径。",
+  "javaNotScanned": "尚未扫描 Java，点击“自动扫描”开始。",
+  "javaRemoveTooltip": "从列表移除（不会删除本地文件）",
+  "javaDialogTitle": "手动添加 Java 路径",
+  "javaDialogHint": "填写 java.exe 的完整路径；仅加入列表，不会自动设为默认。",
+  "javaPathExample": "例如 C:\\Program Files\\Java\\jdk-17\\bin\\java.exe",
+  "javaDetecting": "检测中…",
+  "actionAdd": "添加",
+  "authModeLocalProfile": "本地档案",
+  "authModeMicrosoft": "Microsoft 登录",
+  "authModeThirdParty": "第三方验证",
+  "authModeLocalProfileDesc": "使用本地档案名称进入单人世界，或进入明确允许本地档案的服务器。",
+  "authModeMicrosoftDesc": "一键登录：点击后显示设备码，无需任何额外配置。",
+  "authModeThirdPartyDesc": "使用 LittleSkin 等 Yggdrasil 服务；启动器内置 authlib-injector。",
+  "loginMethodTitle": "登录方式",
+  "loginMethodCurrent": "当前：{mode}",
+  "@loginMethodCurrent": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "loginMethodHint": "选择后会立即保存。账号资料将在启动游戏时填写；本地档案名称和认证服务器等信息会保存在本机。",
+  "microsoftDeviceCodeTitle": "完成 Microsoft 登录",
+  "microsoftDeviceCodeBody": "请打开 {uri} 并输入以下代码：\n\n{code}\n\n登录完成后此窗口会自动关闭。",
+  "@microsoftDeviceCodeBody": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      },
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "microsoftDeviceCodeExpiry": "代码约 {minutes} 分钟内有效。",
+  "@microsoftDeviceCodeExpiry": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "actionOpenBrowser": "打开浏览器",
+  "microsoftNoOwnership": "该 Microsoft 账号未拥有 Minecraft: Java Edition 的有效副本，请购买游戏后再进行在线游玩。",
+  "localProfileTitle": "本地档案",
+  "localProfileNameLabel": "玩家名称",
+  "localProfileNameHint": "3 至 16 位字母、数字或下划线",
+  "homeQuickJoinNoAccount": "尚未配置可用账号，已取消快速加入。请先登录或设置本地档案名称。",
+  "actionContinue": "继续",
+  "homeNeedInstalledVersion": "请先选择一个本地已安装的 Minecraft 版本。",
+  "homeLaunchBusy": "已有启动任务正在进行，请稍后再试。",
+  "homeMissingLaunchConfig": "找不到 {version} 的启动配置，请刷新版本列表后重试。",
+  "@homeMissingLaunchConfig": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "homeJavaNotSelectedQuickJoin": "当前客户端未选择 Java，请先在「设置 → Java 管理」中选择 Java 后再快速加入。",
+  "homeJavaRuntimeMissing": "未找到可用的 Java 运行时：{error}。请先在「设置 → Java 管理」中选择 Java。",
+  "@homeJavaRuntimeMissing": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeJavaNotSelected": "当前客户端未选择 Java，请先在「设置 → Java 管理」中选择 Java。",
+  "homeLaunching": "正在启动 Minecraft {version}。",
+  "@homeLaunching": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "homeLaunchingJoin": "正在启动 {version} 并加入 {server}（{address}）。",
+  "@homeLaunchingJoin": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "server": {
+        "type": "String"
+      },
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "homeLaunchFilesUnavailable": "启动文件不可用：{error}",
+  "@homeLaunchFilesUnavailable": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeJavaStartFailed": "无法启动 Java：{error}。请在「设置 → Java 管理」中选择其他 Java。",
+  "@homeJavaStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeAuthConnectFailed": "连接认证服务失败：{error}",
+  "@homeAuthConnectFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeAuthRequestFailed": "认证请求失败：{error}",
+  "@homeAuthRequestFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeAuthTlsFailed": "认证服务 TLS 连接失败：{error}",
+  "@homeAuthTlsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeAuthTimeout": "认证请求超时，请检查网络后重试。",
+  "homeAuthlibFailed": "内置 authlib-injector 释放失败，请检查启动器目录的写入权限。",
+  "homeLoginAndLaunch": "登录并启动",
+  "homeThirdPartyLoginTitle": "第三方服务器登录",
+  "homeYggdrasilAddress": "Yggdrasil API 地址",
+  "homeEmailOrUsername": "邮箱或用户名",
+  "homePassword": "密码",
+  "homeClientFallback": "客户端",
+  "homeClientJavaSaved": "已为 {name} 保存独立 Java：{java}",
+  "@homeClientJavaSaved": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "java": {
+        "type": "String"
+      }
+    }
+  },
+  "homeClientJavaFollowGlobal": "已将 {name} 的 Java 设置为跟随全局设置。",
+  "@homeClientJavaFollowGlobal": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeClientMemorySaved": "已为 {name} 保存独立内存：{memory} GB",
+  "@homeClientMemorySaved": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "memory": {
+        "type": "String"
+      }
+    }
+  },
+  "homeGlobalJavaMissing": "全局设置的 Java 已不存在（{path}），请在设置中重新选择。",
+  "@homeGlobalJavaMissing": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSettingsReadFailed": "读取启动器设置失败：{error}",
+  "@homeSettingsReadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSettingsSaveFailed": "保存启动器设置失败：{error}",
+  "@homeSettingsSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeJavaAutoRestored": "已恢复自动选择 Java。",
+  "homeJavaUnrecognized": "无法识别所选 Java，请确认它是可运行的 Java 可执行文件。",
+  "homeJavaAdded": "已添加 Java：{name}",
+  "@homeJavaAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeDebugEnabled": "调试日志已开启，并已打开独立日志窗口。",
+  "homeDebugDisabled": "调试日志已关闭。",
+  "homePickJavaTitle": "选择 Java 可执行文件",
+  "homePickJavaFailed": "无法选择 Java 文件：{error}",
+  "@homePickJavaFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeNoClientsFound": "尚未发现客户端，请先选择游戏目录或下载 Minecraft。",
+  "homeInstallPickClientTitle": "选择安装客户端",
+  "homeInstallPickFabricClientTitle": "选择 Fabric 客户端",
+  "homeInstallTargetLabel": "将资源安装到",
+  "homeRememberAndContinue": "记住并继续",
+  "homeSaveClientSelectionFailed": "保存客户端选择失败：{error}",
+  "@homeSaveClientSelectionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeNetworkFailed": "网络连接失败：{error}",
+  "@homeNetworkFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeCatalogReadFailed": "读取 BMCLAPI 失败：{error}",
+  "@homeCatalogReadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeCatalogTimeout": "请求 BMCLAPI 超时，请稍后重试。",
+  "homeVersionDataInvalid": "版本数据格式无效：{error}",
+  "@homeVersionDataInvalid": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeLoaderFetchStatus": "获取 {loader} 加载器版本（Minecraft {version}）",
+  "@homeLoaderFetchStatus": {
+    "placeholders": {
+      "loader": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "homeLoaderDataInvalid": "加载器版本数据格式无效：{error}",
+  "@homeLoaderDataInvalid": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeChooseMinecraftFolder": "无法确定默认 Minecraft 目录，请先在版本管理中选择 .minecraft 文件夹。",
+  "homeDownloadBusy": "已有下载任务正在进行，请等待完成或先取消当前任务。",
+  "homeSelectMinecraftVersionFirst": "请先选择一个 Minecraft 版本。",
+  "homeSelectLoaderVersionFirst": "请先选择有效的 {loader} 版本。",
+  "@homeSelectLoaderVersionFirst": {
+    "placeholders": {
+      "loader": {
+        "type": "String"
+      }
+    }
+  },
+  "homeInvalidClientName": "客户端名称无效：不能包含 \\ / : * ? \" < > |，也不能使用系统保留名称。",
+  "homeClientNameExists": "客户端名称「{name}」已存在，请换一个名称。",
+  "@homeClientNameExists": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homePreparingDownload": "准备下载 Minecraft {version}…",
+  "@homePreparingDownload": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "homeInstallerLabel": "{loader} {version} 安装器",
+  "@homeInstallerLabel": {
+    "placeholders": {
+      "loader": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "homeInstallFinished": "{summary} 安装完成。",
+  "@homeInstallFinished": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
+  },
+  "homeFabricApiIncomplete": " Fabric API 未完成，可在资源页重试。",
+  "homeOptifineClosedRescan": "OptiFine 安装器已关闭，请重新扫描版本列表确认安装结果。",
+  "homeInstalledTo": "{summary} 已安装到 {path}。",
+  "@homeInstalledTo": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "homeOptifineClosedConfirm": "OptiFine 安装器已关闭，请确认安装结果后重新扫描版本。",
+  "homeClientInstallDoneCancelRest": "客户端已完成安装，剩余下载已取消。",
+  "homeDownloadCancelled": "下载已取消，临时文件已清理。",
+  "homeDownloadServerError": "下载服务器返回错误：{error}",
+  "@homeDownloadServerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeDownloadConnectFailed": "下载连接失败：{error}",
+  "@homeDownloadConnectFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeInstallTimeout": "安装超时，请检查网络代理后重试。",
+  "homeMinecraftDataInvalid": "Minecraft 版本数据无效：{error}",
+  "@homeMinecraftDataInvalid": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeWriteFilesFailed": "写入 Minecraft 文件失败：{error}",
+  "@homeWriteFilesFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeMinecraftDownloadFailed": "Minecraft 下载失败：{error}",
+  "@homeMinecraftDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "targetClientTitle": "选择目标客户端",
+  "targetClientSubtitle": "选择要把资源安装到哪个客户端。",
+  "targetClientSubtitleNamed": "为「{name}」选择安装位置。",
+  "@targetClientSubtitleNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "targetClientEmpty": "还没有可用客户端，请先在版本管理中安装客户端。",
+  "targetClientPickFolderFailed": "无法选择文件夹：{error}",
+  "@targetClientPickFolderFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "targetClientFolderDialogTitle": "选择客户端目录（version 文件夹）",
+  "targetClientChooseFolder": "让我自己决定放在哪",
+  "targetClientConfirm": "确认安装",
+  "targetClientBadgeCompatible": "兼容",
+  "targetClientBadgeVersionMismatch": "版本不匹配",
+  "targetClientBadgeLoaderMismatch": "加载器不匹配",
+  "targetClientBadgeBothMismatch": "版本与加载器不匹配",
+  "targetClientWarning": "警告：该模组可能无法在此客户端中正常加载，请确保你使用了信雅互联等跨加载器工具。",
+  "targetClientSupportVersions": "支持版本：{versions}",
+  "@targetClientSupportVersions": {
+    "placeholders": {
+      "versions": {
+        "type": "String"
+      }
+    }
+  },
+  "targetClientSupportLoaders": "支持加载器：{loaders}",
+  "@targetClientSupportLoaders": {
+    "placeholders": {
+      "loaders": {
+        "type": "String"
+      }
+    }
+  },
+  "targetClientSupportNone": "该资源未声明版本或加载器限制，所有客户端均可安装。",
+  "commonUnknownVersion": "未知版本"
+}

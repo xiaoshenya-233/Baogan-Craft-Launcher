@@ -8,6 +8,8 @@ import 'package:window_manager/window_manager.dart';
 import 'core/launcher_log.dart';
 import 'core/network_detector.dart';
 import 'core/path_manager.dart';
+import 'l10n/app_localizations.dart';
+import 'pages/launcher/controllers/appearance_controller.dart';
 import 'pages/launcher/launcher_app.dart';
 import 'pages/launcher_home_page.dart';
 import 'services/launcher/authlib_injector.dart';
@@ -26,6 +28,12 @@ export 'services/translation/mod_search_service.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Decide the UI language before any widget runs: the setup wizard, the
+  // startup splash and the network-check window already need it.
+  launcherLocale.value = detectLauncherLocale(
+    WidgetsBinding.instance.platformDispatcher.locale,
+  );
 
   final status = await const NetworkDetector().checkRegion();
   if (status == RegionStatus.unknown) {
@@ -107,74 +115,90 @@ class _NetworkCheckAppState extends State<NetworkCheckApp> {
       if (!started) {
         setState(() {
           _checking = false;
-          _error = '网络检测仍然失败，请检查网络或系统代理设置后重试。';
+          _error = AppLocalizations.of(context)!.networkCheckRetryFailed;
         });
       }
     } on Object catch (error) {
       if (!mounted) return;
       setState(() {
         _checking = false;
-        _error = '启动失败：$error';
+        _error = AppLocalizations.of(context)!.networkStartFailed('$error');
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<Locale>(
+      valueListenable: launcherLocale,
+      builder: (context, locale, _) => MaterialApp(
+        onGenerateTitle: (context) =>
+            AppLocalizations.of(context)?.appTitle ?? 'Baogan Craft Launcher',
+        debugShowCheckedModeBanner: false,
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => _buildNetworkError(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNetworkError(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.wifi_off_rounded,
-                      size: 52,
-                      color: colorScheme.primary,
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.wifi_off_rounded,
+                    size: 52,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    l10n.networkCheckTitle,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '网络环境检测失败',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '无法确认当前网络环境，下载功能暂不可用。'
-                      '请检查网络或系统代理设置后重试。',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.networkCheckMessage,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _error!,
                       textAlign: TextAlign.center,
-                    ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colorScheme.error),
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      onPressed: _checking ? null : _retry,
-                      icon: _checking
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh_rounded),
-                      label: Text(_checking ? '正在检测…' : '重试'),
+                      style: TextStyle(color: colorScheme.error),
                     ),
                   ],
-                ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: _checking ? null : _retry,
+                    icon: _checking
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded),
+                    label: Text(
+                      _checking ? l10n.networkChecking : l10n.actionRetry,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

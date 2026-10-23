@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../services/java/java_service.dart';
 import '../../launcher/launcher_palette.dart';
 
@@ -30,6 +31,7 @@ class JavaSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = palette.muted;
     final accent = palette.uiColors.accent;
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -41,7 +43,7 @@ class JavaSummaryCard extends StatelessWidget {
           ),
         if (!isLoading && runtimes.isEmpty && error == null)
           Text(
-            '尚未检测到 Java。点击「管理 Java」扫描本机或手动添加。',
+            l10n.javaNoneDetected,
             style: TextStyle(fontSize: 11, color: muted),
           ),
         for (final runtime in runtimes)
@@ -85,7 +87,7 @@ class JavaSummaryCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(5),
                     ),
                     child: Text(
-                      '当前使用',
+                      l10n.javaCurrent,
                       style: TextStyle(fontSize: 9.5, color: accent),
                     ),
                   ),
@@ -96,7 +98,7 @@ class JavaSummaryCard extends StatelessWidget {
         FilledButton.icon(
           onPressed: onManage,
           icon: const Icon(Icons.settings_suggest_outlined, size: 18),
-          label: const Text('管理 Java'),
+          label: Text(l10n.actionManageJava),
         ),
       ],
     );

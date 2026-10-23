@@ -130,7 +130,7 @@ class MinecraftCatalogService {
   Future<dynamic> _getJson(Uri uri) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/1.0.0 (Minecraft version catalog)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (Minecraft version catalog)';
     try {
       final request = await client
           .getUrl(uri)
@@ -161,7 +161,7 @@ class ModrinthService {
     cancellation?.throwIfCancelled();
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/1.0.0 (Fabric API installer)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (Fabric API installer)';
     void abort() => client.close(force: true);
     cancellation?.addListener(abort);
     try {
@@ -242,7 +242,7 @@ class ModrinthService {
     );
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 20)
-      ..userAgent = 'BlockLauncher/1.0.0 (Fabric API installer)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (Fabric API installer)';
     void abort() => client.close(force: true);
     cancellation?.addListener(abort);
     try {
@@ -301,7 +301,7 @@ class ModrinthService {
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/1.0.0 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
     try {
       final searchUri = Uri.https('api.modrinth.com', '/v2/search', {
         'query': query,
@@ -368,7 +368,7 @@ class ModrinthService {
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/1.0.0 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
     try {
       final projectUri = Uri.https('api.modrinth.com', '/v2/project/$id');
       final project = await _getJson(client, projectUri);
@@ -408,7 +408,7 @@ class ModrinthService {
   static Future<List<ModrinthVersion>> fetchVersions(String id) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/1.0.0 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
     try {
       return await _fetchProjectVersions(client, id);
     } finally {

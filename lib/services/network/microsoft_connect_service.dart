@@ -2,6 +2,10 @@ import 'package:mcid_connect/mcid_connect.dart' as mcid;
 
 import 'auth_service.dart';
 
+/// Public client id registered for this launcher (public client flow enabled),
+/// so players only need to complete the device-code page.
+const String defaultMicrosoftClientId = 'fcb9776-0d60-4879-984b-bb833bd55152';
+
 /// Device-code instructions surfaced by [MicrosoftConnectService].
 class MicrosoftConnectDeviceCode {
   const MicrosoftConnectDeviceCode({
@@ -19,7 +23,6 @@ class MicrosoftConnectDeviceCode {
 
 /// Why a Microsoft sign-in failed, so the UI can show a friendly message.
 enum MicrosoftConnectFailure {
-  notConfigured,
   cancelledOrExpired,
   noMinecraftProfile,
   tokenMissing,
@@ -38,8 +41,8 @@ class MicrosoftConnectException implements Exception {
 
 /// Microsoft / Xbox Live / Minecraft login built on the `mcid_connect` package.
 ///
-/// The Azure application must be registered as a public client (mobile &
-/// desktop) with the `XboxLive.signin` and `offline_access` scopes.
+/// The public community client id is used by default, so players only need to
+/// complete the device-code page; no Azure registration is involved.
 class MicrosoftConnectService {
   const MicrosoftConnectService({
     this.redirectUri = 'http://localhost:3000',
@@ -49,21 +52,21 @@ class MicrosoftConnectService {
   final String redirectUri;
   final List<String> scopes;
 
+  /// Falls back to [defaultMicrosoftClientId] when [clientId] is blank.
+  static String resolveClientId(String? clientId) {
+    final normalized = clientId?.trim() ?? '';
+    return normalized.isEmpty ? defaultMicrosoftClientId : normalized;
+  }
+
   /// Runs the device-code flow and returns the Minecraft identity.
   ///
   /// [onDeviceCode] fires as soon as Microsoft issues the code so the caller can
   /// display it; polling continues in the background until the player finishes.
   Future<AuthIdentity> signIn({
-    required String clientId,
+    String clientId = defaultMicrosoftClientId,
     required void Function(MicrosoftConnectDeviceCode prompt) onDeviceCode,
   }) async {
-    final normalizedClientId = clientId.trim();
-    if (normalizedClientId.isEmpty) {
-      throw const MicrosoftConnectException(
-        MicrosoftConnectFailure.notConfigured,
-        '请先在设置中填写 Azure 应用程序（客户端）ID，并开启“允许公共客户端流”。',
-      );
-    }
+    final normalizedClientId = resolveClientId(clientId);
 
     final authService = mcid.AuthService(
       clientId: normalizedClientId,

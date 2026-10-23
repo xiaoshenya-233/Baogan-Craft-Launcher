@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../widgets/launcher/launcher_common.dart';
 import 'setup_window_bar.dart';
 
@@ -9,6 +10,7 @@ class LauncherStartupSplash extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: dark ? const Color(0xFF101510) : const Color(0xFFF1F4ED),
       body: Stack(
@@ -21,7 +23,7 @@ class LauncherStartupSplash extends StatelessWidget {
                 const BlockLogo(size: 72, radius: 16),
                 const SizedBox(height: 18),
                 Text(
-                  'Baogan Craft Launcher',
+                  l10n.appTitle,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,

@@ -28,15 +28,127 @@ String _compactMcmodTitleKey(String title) =>
 bool _containsChinese(String value) =>
     RegExp(r'[\u4e00-\u9fff]').hasMatch(value);
 
-/// Turns a title such as `钠 (Sodium)` into `钠`.
+/// Longest Chinese name accepted from mcmod; mod names are much shorter than
+/// wiki entry titles, so longer values are treated as scraped garbage.
+const int maxChineseModNameLength = 20;
+
+/// mcmod wiki page kinds that describe an entry instead of a mod, such as
+/// `(物品/方块) Meka工具` or `(教程) 通用机械入门`.
+const List<String> mcmodEntryKinds = <String>[
+  '物品/方块/实体',
+  '物品/方块',
+  '多方块结构',
+  '状态效果',
+  '游戏版本',
+  '整合包',
+  '服务器',
+  '教程',
+  '模组',
+  '命令',
+  '附魔',
+  '药水',
+  '生物',
+  '实体',
+  '结构',
+  '维度',
+  '进度',
+  '标签',
+  '机制',
+  '配置',
+  '食物',
+  '工具',
+  '武器',
+  '盔甲',
+  '矿物',
+  '物品',
+  '方块',
+];
+
+final RegExp _mcmodEntryMarker = RegExp(
+  '[\\s\u3000]*[\\(（]\\s*(?:${mcmodEntryKinds.map(RegExp.escape).join('|')})'
+  '\\s*[\\)）]',
+);
+
+/// True when [value] carries a wiki page kind such as `(物品/方块)`.
+bool isMcmodEntryTitle(String value) => _mcmodEntryMarker.hasMatch(value);
+
+bool _startsWithEntryKind(String value) {
+  final match = _mcmodEntryMarker.firstMatch(value);
+  return match != null && match.start == 0;
+}
+
+/// Extracts the mod name from `Meka工具 (Meka-Tool) - [Mek] 通用机械`.
 ///
-/// The API often returns both the Chinese name and the English name in the
-/// title field, with an optional `[JEI]`-style MODID prefix.
+/// Item pages append ` - [MODID] <mod name>`; that tail is the only part of
+/// such a scraped title that can be trusted as a mod name.
+String? _mcmodModNameSuffix(String value) {
+  final match = RegExp(
+    r'^.*[-\u2010-\u2015|]\s*\[[^\]]+\]\s*(\S.*)$',
+  ).firstMatch(value.trim());
+  return match?.group(1)?.trim();
+}
+
+String _stripLeadingBrackets(String value) {
+  var result = value;
+  for (var index = 0; index < 3; index++) {
+    final next = result.replaceFirst(RegExp(r'^\[[^\]]*\]\s*'), '');
+    if (next == result) break;
+    result = next;
+  }
+  return result;
+}
+
+String _stripTrailingParentheses(String value) {
+  var result = value;
+  for (var index = 0; index < 3; index++) {
+    final next = result.replaceFirst(RegExp(r'\s*[\(（][^\)）]*[\)）]\s*$'), '');
+    if (next == result) break;
+    result = next;
+  }
+  return result.trim();
+}
+
+/// Rejects values that must never be shown as a Chinese mod name.
+bool isValidChineseModTitle(String value) {
+  final title = value.trim();
+  if (title.isEmpty) return false;
+  if (!_containsChinese(title)) return false;
+  if (title.runes.length > maxChineseModNameLength) return false;
+  if (isMcmodEntryTitle(title)) return false;
+  // Leftover wiki markup means the title was only partially stripped.
+  if (RegExp(r'[\[\]\(\)（）]').hasMatch(title)) return false;
+  if (RegExp(r'\s[-\u2013\u2014|]\s').hasMatch(title)) return false;
+  return true;
+}
+
+/// Turns an mcmod title into a displayable Chinese mod name.
+///
+/// Handles the wiki formats seen in the API, e.g.
+/// `[Mek] 通用机械` -> `通用机械`,
+/// `(Meka工具) (Meka-Tool) - [Mek] 通用机械` -> `通用机械`,
+/// `钠 (Sodium)` -> `钠`.
+///
+/// Returns an empty string when the title is an entry page without a usable mod
+/// name (`(物品/方块) Meka工具`), is too long, or still contains wiki markup, so
+/// callers can fall back to the English name.
 String cleanChineseTitle(String value) {
   var title = value.trim();
-  title = title.replaceFirst(RegExp(r'^\[[^\]]+\]\s*'), '');
-  title = title.replaceFirst(RegExp(r'\s*[\(（][^\)）]*[\)）]\s*$'), '');
-  return title.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (title.isEmpty) return '';
+
+  final suffix = _mcmodModNameSuffix(title);
+  if (_startsWithEntryKind(title)) {
+    // `(物品/方块) 富集铀锭` is an item page: reject it unless the trailing
+    // `- [Mek] 通用机械` fragment still names the owning mod.
+    if (suffix == null) return '';
+    title = suffix;
+  } else {
+    title = suffix ?? title;
+  }
+
+  title = _stripLeadingBrackets(title);
+  title = _stripTrailingParentheses(title);
+  title = title.replaceAll(RegExp(r'[\s\u3000]+'), ' ').trim();
+  return isValidChineseModTitle(title) ? title : '';
 }
 
 /// One resolved display name together with aliases collected from the same
@@ -100,6 +212,7 @@ Set<String> _mcmodEntryAliases(Map data, String title) {
   add(data['sub_name']);
   add(data['abbr']);
   add(RegExp(r'^\[([^\]]+)\]').firstMatch(title)?.group(1));
+  add(RegExp(r'-\s*\[([^\]]+)\]').firstMatch(title)?.group(1));
   add(RegExp(r'[\(（]([^\)）]*)[\)）]\s*$').firstMatch(title)?.group(1));
   if (!_containsChinese(title)) add(title);
   return aliases;
@@ -250,17 +363,50 @@ class McmodTitleService {
       _db = db;
       // Also covers a database that existed before the `mods` table was added.
       await _createModsTable(db);
+      final dirtyKeys = <String>[];
       final rows = await db.query(_tableName);
       for (final row in rows) {
         final english = row['english_name'];
         final chinese = row['chinese_name'];
-        if (english is String && chinese is String) {
-          _cache[_cacheKey(english)] = chinese;
+        if (english is! String || chinese is! String) continue;
+        final key = _cacheKey(english);
+        if (key.isEmpty) continue;
+        // Older builds stored whole mcmod wiki titles such as
+        // `(物品/方块) Meka工具 (Meka-Tool) - [Mek] 通用机械`; clean them up and
+        // drop rows that cannot be recovered.
+        final cleaned = cleanChineseTitle(chinese);
+        if (cleaned.isEmpty) {
+          dirtyKeys.add(english);
+          continue;
         }
+        _cache[key] = cleaned;
+      }
+      if (dirtyKeys.isNotEmpty) {
+        await _deleteStoredNames(db, dirtyKeys);
       }
       LauncherLog.info('McmodTitles', '已加载 ${_cache.length} 条中文模组名');
     } catch (error) {
       LauncherLog.warning('McmodTitles', '打开中文模组名数据库失败：$error');
+    }
+  }
+
+  /// Removes scraped rows that must never be displayed again.
+  Future<void> _deleteStoredNames(
+    Database db,
+    List<String> englishNames,
+  ) async {
+    try {
+      final batch = db.batch();
+      for (final name in englishNames) {
+        batch.delete(_tableName, where: 'english_name = ?', whereArgs: [name]);
+      }
+      await batch.commit(noResult: true);
+      LauncherLog.info(
+        'McmodTitles',
+        '已清理 ${englishNames.length} 条无效中文模组名',
+      );
+    } catch (error) {
+      LauncherLog.warning('McmodTitles', '清理无效中文模组名失败：$error');
     }
   }
 
@@ -286,7 +432,9 @@ class McmodTitleService {
     final key = _cacheKey(original);
     if (key.isEmpty) return null;
     final cached = _cache[key] ?? _cache[_compactMcmodTitleKey(original)];
-    return cached == null || cached.trim().isEmpty ? null : cached;
+    if (cached == null) return null;
+    final cleaned = cleanChineseTitle(cached);
+    return cleaned.isEmpty ? null : cleaned;
   }
 
   /// Returns the translated name, or the original English name on cache miss
@@ -299,7 +447,10 @@ class McmodTitleService {
     if (key.isEmpty) return original;
     final memoryValue = _cache[key] ?? _cache[_compactMcmodTitleKey(original)];
     if (memoryValue != null && memoryValue.trim().isNotEmpty) {
-      return memoryValue;
+      final cleaned = cleanChineseTitle(memoryValue);
+      if (cleaned.isNotEmpty) return cleaned;
+      _cache.remove(key);
+      _cache.remove(_compactMcmodTitleKey(original));
     }
 
     final cached = await _readFromDatabase(key);
@@ -337,9 +488,14 @@ class McmodTitleService {
       );
       if (rows.isEmpty) return null;
       final chinese = rows.first['chinese_name'];
-      if (chinese is! String || chinese.trim().isEmpty) return null;
-      _cache[key] = chinese;
-      return chinese;
+      final cleaned = chinese is String ? cleanChineseTitle(chinese) : '';
+      if (cleaned.isEmpty) {
+        // Legacy scraped row: drop it so it can never reach the UI.
+        await _deleteStoredNames(db, [key]);
+        return null;
+      }
+      _cache[key] = cleaned;
+      return cleaned;
     } catch (error) {
       LauncherLog.warning('McmodTitles', '读取中文模组名缓存失败：$error');
       return null;
@@ -351,14 +507,17 @@ class McmodTitleService {
       final lookup = await _semaphore.withPermit(
         () => _requestChinese(englishName),
       );
-      if (lookup != null && lookup.chinese.isNotEmpty) {
-        final mappings = <String, String>{
-          ...lookup.aliases,
-          key: lookup.chinese,
-        };
+      final chinese = lookup == null ? '' : cleanChineseTitle(lookup.chinese);
+      if (chinese.isNotEmpty) {
+        final mappings = <String, String>{};
+        for (final entry in (lookup?.aliases ?? const <String, String>{}).entries) {
+          final cleaned = cleanChineseTitle(entry.value);
+          if (cleaned.isNotEmpty) mappings[entry.key] = cleaned;
+        }
+        mappings[key] = chinese;
         _cache.addAll(mappings);
         await _writeMappingsToDatabase(mappings);
-        return lookup.chinese;
+        return chinese;
       }
     } on Object catch (error) {
       LauncherLog.warning('McmodTitles', '翻译「$englishName」失败，保留英文名：$error');
@@ -375,7 +534,7 @@ class McmodTitleService {
 
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 8)
-      ..userAgent = 'BlockLauncher/1.0.0 (mcmod title translation)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (mcmod title translation)';
     try {
       for (final query in queries) {
         final lookup = await _requestChineseQuery(client, query);
@@ -423,10 +582,11 @@ class McmodTitleService {
       final batch = db.batch();
       final updatedAt = DateTime.now().millisecondsSinceEpoch;
       for (final entry in mappings.entries) {
-        if (entry.key.isEmpty || entry.value.trim().isEmpty) continue;
+        final cleaned = cleanChineseTitle(entry.value);
+        if (entry.key.isEmpty || cleaned.isEmpty) continue;
         batch.insert(_tableName, {
           'english_name': entry.key,
-          'chinese_name': entry.value.trim(),
+          'chinese_name': cleaned,
           'updated_at': updatedAt,
         }, conflictAlgorithm: ConflictAlgorithm.replace);
       }

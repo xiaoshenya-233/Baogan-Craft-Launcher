@@ -40,7 +40,7 @@ class CurseForgeService {
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/1.0.0 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
     try {
       final parameters = <String, String>{
         'gameId': '$_minecraftGameId',
@@ -86,7 +86,7 @@ class CurseForgeService {
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/1.0.0 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
     try {
       final json = await _getJson(
         client,
@@ -105,7 +105,7 @@ class CurseForgeService {
   static Future<List<ModrinthVersion>> fetchVersions(String id) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/1.0.0 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
     try {
       const pageSize = 50;
       const maxPages = 1000;

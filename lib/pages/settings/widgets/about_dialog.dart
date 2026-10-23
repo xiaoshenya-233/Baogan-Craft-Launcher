@@ -1,38 +1,43 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/platform_launcher.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../widgets/launcher/launcher_common.dart';
 
 /// Public metadata shown in the about dialog.
 const String launcherRepoUrl =
     'https://github.com/xiaoshenya-233/Baogan-Craft-Launcher';
-const String launcherVersion = '26.1Alpha1';
+const String launcherVersion = '26.1alpha1.1';
 
 class _CreditEntry {
   const _CreditEntry(this.name, this.description, this.icon);
 
   final String name;
-  final String description;
+  final String Function(AppLocalizations l10n) description;
   final IconData icon;
 }
 
-const List<_CreditEntry> _credits = <_CreditEntry>[
+final List<_CreditEntry> _credits = <_CreditEntry>[
   _CreditEntry(
     'PCL2',
-    'Plain Craft Launcher 2 · 界面交互与整合包安装流程参考',
+    (l10n) => l10n.aboutCreditsPcl,
     Icons.auto_awesome_rounded,
   ),
   _CreditEntry(
     'HMCL',
-    'Hello Minecraft! Launcher · 加载器识别与 Java 管理思路参考',
+    (l10n) => l10n.aboutCreditsHmcl,
     Icons.memory_rounded,
   ),
   _CreditEntry(
     'XMCL',
-    'X Minecraft Launcher · 资源管理与视觉设计参考',
+    (l10n) => l10n.aboutCreditsXmcl,
     Icons.rocket_launch_rounded,
   ),
-  _CreditEntry('BMCLAPI', '提供 Minecraft 资源下载加速服务', Icons.speed_rounded),
+  _CreditEntry(
+    'BMCLAPI',
+    (l10n) => l10n.aboutCreditsBmclapi,
+    Icons.speed_rounded,
+  ),
 ];
 
 /// Shows the GPLv3 / credits dialog.
@@ -53,7 +58,11 @@ class AboutLauncherDialog extends StatelessWidget {
     } on Object catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text('无法打开浏览器：$error')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.settingsOpenBrowserFailed('$error'),
+          ),
+        ),
       );
     }
   }
@@ -74,6 +83,7 @@ class AboutLauncherDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -101,7 +111,7 @@ class AboutLauncherDialog extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '版本 $launcherVersion · GPLv3 开源',
+                          l10n.aboutVersionLabel(launcherVersion),
                           style: TextStyle(
                             fontSize: 11.5,
                             color: scheme.onSurfaceVariant,
@@ -111,7 +121,7 @@ class AboutLauncherDialog extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    tooltip: '关闭',
+                    tooltip: l10n.actionClose,
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -125,17 +135,22 @@ class AboutLauncherDialog extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _sectionTitle(scheme, Icons.gavel_rounded, '开源协议'),
+                    _sectionTitle(scheme, Icons.gavel_rounded, l10n.aboutLicenseTitle),
                     const SizedBox(height: 8),
-                    _buildLicenceCard(scheme),
+                    _buildLicenceCard(scheme, l10n),
                     const SizedBox(height: 18),
-                    _sectionTitle(scheme, Icons.code_rounded, 'GitHub 仓库'),
+                    _sectionTitle(scheme, Icons.code_rounded, l10n.aboutRepoButton),
                     const SizedBox(height: 8),
                     _buildRepositoryLink(context, scheme),
                     const SizedBox(height: 18),
-                    _sectionTitle(scheme, Icons.favorite_rounded, '核心鸣谢'),
+                    _sectionTitle(
+                      scheme,
+                      Icons.favorite_rounded,
+                      l10n.aboutCreditsTitle,
+                    ),
                     const SizedBox(height: 8),
-                    for (final credit in _credits) _buildCredit(credit, scheme),
+                    for (final credit in _credits)
+                      _buildCredit(credit, scheme, l10n),
                   ],
                 ),
               ),
@@ -147,7 +162,7 @@ class AboutLauncherDialog extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '感谢所有开源项目与社区贡献者。',
+                      l10n.aboutThanks,
                       style: TextStyle(
                         fontSize: 10.5,
                         color: scheme.onSurfaceVariant,
@@ -156,7 +171,7 @@ class AboutLauncherDialog extends StatelessWidget {
                   ),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('关闭'),
+                    child: Text(l10n.actionClose),
                   ),
                 ],
               ),
@@ -167,7 +182,7 @@ class AboutLauncherDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildLicenceCard(ColorScheme scheme) {
+  Widget _buildLicenceCard(ColorScheme scheme, AppLocalizations l10n) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -187,10 +202,9 @@ class AboutLauncherDialog extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            '本项目基于 GPLv3 协议开源：你可以自由使用、修改与分发，'
-            '但衍生作品必须同样以 GPLv3 开放源代码，并保留原始版权声明。',
-            style: TextStyle(fontSize: 11.5, height: 1.5),
+          Text(
+            l10n.aboutLicenseBody,
+            style: const TextStyle(fontSize: 11.5, height: 1.5),
           ),
         ],
       ),
@@ -231,7 +245,11 @@ class AboutLauncherDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildCredit(_CreditEntry credit, ColorScheme scheme) {
+  Widget _buildCredit(
+    _CreditEntry credit,
+    ColorScheme scheme,
+    AppLocalizations l10n,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -260,7 +278,7 @@ class AboutLauncherDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  credit.description,
+                  credit.description(l10n),
                   style: TextStyle(
                     fontSize: 11,
                     height: 1.4,

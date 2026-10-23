@@ -37,7 +37,7 @@ extension _HomeViewActions on _LauncherHomePageState {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '当前客户端',
+                                    _l10n.homeCurrentClient,
                                     style: TextStyle(
                                       fontSize: 10,
                                       letterSpacing: 1.4,
@@ -49,8 +49,8 @@ extension _HomeViewActions on _LauncherHomePageState {
                                   Text(
                                     selectedVersion?.id ??
                                         (_isLoadingVersions
-                                            ? '正在扫描客户端…'
-                                            : '尚未选择客户端'),
+                                            ? _l10n.homeScanningClients
+                                            : _l10n.homeNoClientSelected),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
@@ -63,9 +63,9 @@ extension _HomeViewActions on _LauncherHomePageState {
                                   const SizedBox(height: 7),
                                   Text(
                                     selectedVersion == null
-                                        ? '点击下方客户端卡片选择要启动的客户端版本。'
+                                        ? _l10n.homeSelectClientHint
                                         : '${_homeLoaderLabel(selectedVersion)}'
-                                              ' · Minecraft ${selectedVersion.minecraftVersion ?? '未知'}'
+                                              ' · Minecraft ${selectedVersion.minecraftVersion ?? _l10n.commonUnknown}'
                                               ' · ${lastPathSegment(selectedVersion.minecraftPath)}',
                                     style: TextStyle(
                                       fontSize: 12,
@@ -175,7 +175,7 @@ extension _HomeViewActions on _LauncherHomePageState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      account == null ? '登录方式' : '当前账号',
+                      account == null ? _l10n.homeLoginMethod : _l10n.homeCurrentAccount,
                       style: TextStyle(
                         fontSize: 10,
                         letterSpacing: 0.8,
@@ -185,7 +185,7 @@ extension _HomeViewActions on _LauncherHomePageState {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      account?.name ?? mode.label,
+                      account?.name ?? _homeAuthModeLabel(mode),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -196,7 +196,9 @@ extension _HomeViewActions on _LauncherHomePageState {
                     const SizedBox(height: 2),
                     Text(
                       account != null
-                          ? '${account.type.label} · 点击管理账号'
+                          ? _l10n.homeManageAccount(
+                              _homeAccountTypeLabel(account.type),
+                            )
                           : _homeAccountDetail,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -229,10 +231,21 @@ extension _HomeViewActions on _LauncherHomePageState {
     );
   }
 
+  String _homeAuthModeLabel(AuthMode mode) => switch (mode) {
+    AuthMode.offline => _l10n.authModeLocalProfile,
+    AuthMode.microsoft => _l10n.authModeMicrosoft,
+    AuthMode.thirdParty => _l10n.authModeThirdParty,
+  };
+
+  String _homeAccountTypeLabel(AccountType type) => switch (type) {
+    AccountType.offline => _l10n.authModeLocalProfile,
+    AccountType.microsoft => _l10n.authModeMicrosoft,
+    AccountType.thirdParty => _l10n.authModeThirdParty,
+  };
+
   String get _homeAccountDetail => switch (_launchAuthMode) {
-    AuthMode.offline => '玩家：$_offlinePlayerName',
-    AuthMode.microsoft =>
-      _microsoftClientId.trim().isEmpty ? '启动时登录 Microsoft 账号' : 'OAuth 客户端已配置',
+    AuthMode.offline => _l10n.homePlayerName(_offlinePlayerName),
+    AuthMode.microsoft => _l10n.homeMicrosoftHint,
     AuthMode.thirdParty => _thirdPartyAuthServer,
   };
 
@@ -247,21 +260,31 @@ extension _HomeViewActions on _LauncherHomePageState {
     if (!mounted) return;
     if (selected != AuthMode.microsoft) {
       _microsoftIdentity = null;
-      _showVersionMessage('登录方式已切换为 ${selected.label}。');
+      _showVersionMessage(
+        _l10n.homeAuthSwitched(
+          switch (selected) {
+            AuthMode.offline => _l10n.authModeLocalProfile,
+            AuthMode.microsoft => _l10n.authModeMicrosoft,
+            AuthMode.thirdParty => _l10n.authModeThirdParty,
+          },
+        ),
+      );
       return;
     }
     // Switching to "Microsoft 正版登录" starts the device-code sign-in at once.
     final identity = await _authenticateMicrosoft();
     if (!mounted || identity == null) return;
-    _showVersionMessage('已登录 Microsoft 账号：${identity.name}，启动时将直接使用该账号。');
+    _showVersionMessage(_l10n.homeMicrosoftSignedIn(identity.name));
   }
 
   Widget _buildClientPickerBar(MinecraftVersion? selectedVersion) {
-    final name =
-        selectedVersion?.id ?? (_isLoadingVersions ? '正在扫描客户端…' : '选择客户端');
+    final name = selectedVersion?.id ??
+        (_isLoadingVersions
+            ? _l10n.homeScanningClients
+            : _l10n.homeSelectClient);
     final detail = selectedVersion == null
-        ? '点击选择已安装客户端'
-        : 'Minecraft ${selectedVersion.minecraftVersion ?? selectedVersion.type ?? '版本未知'}'
+        ? _l10n.homeClickSelectClient
+        : 'Minecraft ${selectedVersion.minecraftVersion ?? selectedVersion.type ?? _l10n.homeVersionUnknown}'
               ' · ${_homeLoaderLabel(selectedVersion)}'
               ' · ${lastPathSegment(selectedVersion.minecraftPath)}';
     return Container(
@@ -312,7 +335,7 @@ extension _HomeViewActions on _LauncherHomePageState {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text('切换', style: TextStyle(fontSize: 10, color: _muted)),
+                      Text(_l10n.homeSwitch, style: TextStyle(fontSize: 10, color: _muted)),
                       const SizedBox(width: 4),
                       Icon(Icons.unfold_more_rounded, size: 18, color: _muted),
                     ],
@@ -330,7 +353,7 @@ extension _HomeViewActions on _LauncherHomePageState {
                 borderRadius: BorderRadius.circular(10),
                 onTap: selectedVersion == null ? null : _showClientConfig,
                 child: Tooltip(
-                  message: '查看客户端配置',
+                  message: _l10n.homeViewClientConfig,
                   child: SizedBox(
                     width: 44,
                     height: 44,
@@ -356,7 +379,7 @@ extension _HomeViewActions on _LauncherHomePageState {
         .where((version) => version.directoryPath == _selectedLaunchVersionId)
         .firstOrNull;
     if (selectedVersion == null) {
-      _showVersionMessage('请先选择一个客户端。');
+      _showVersionMessage(_l10n.homeSelectClientFirst);
       return;
     }
     await ClientConfigSheet.show(
@@ -423,7 +446,7 @@ extension _HomeViewActions on _LauncherHomePageState {
           id: version.id,
           directoryPath: version.directoryPath,
           minecraftLabel: version.minecraftVersion == null
-              ? (version.type ?? '版本类型未知')
+              ? (version.type ?? _l10n.homeVersionTypeUnknown)
               : 'Minecraft ${version.minecraftVersion}',
           loaderLabel: _homeLoaderLabel(version),
           isModded: version.loaderType != null,
@@ -460,7 +483,10 @@ extension _HomeViewActions on _LauncherHomePageState {
                 color: const Color(0xFF172013),
               ),
             )
-          : Text('开始游戏', style: TextStyle(fontWeight: FontWeight.w700)),
+          : Text(
+              _l10n.homeLaunchGame,
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
       style: ElevatedButton.styleFrom(
         backgroundColor: _LauncherHomePageState._green,
         foregroundColor: const Color(0xFF172013),
@@ -471,9 +497,9 @@ extension _HomeViewActions on _LauncherHomePageState {
   }
 
   String _homeLoaderLabel(MinecraftVersion? version) {
-    if (version == null) return '未选择客户端';
+    if (version == null) return _l10n.homeNoClient;
     final loader = version.loaderType;
-    if (loader == null) return '原版';
+    if (loader == null) return _l10n.versionVanilla;
     final loaderVersion = version.loaderVersion;
     return loaderVersion == null ? loader : '$loader $loaderVersion';
   }
@@ -486,15 +512,15 @@ extension _HomeViewActions on _LauncherHomePageState {
       return lastPathSegment(selected);
     }
     if (_hasSearchedJava) {
-      return '自动匹配（已检测 ${_javaRuntimes.length} 个）';
+      return _l10n.homeJavaAutoDetected(_javaRuntimes.length);
     }
-    return '启动时自动匹配';
+    return _l10n.homeJavaAutoLaunch;
   }
 
   String get _homeAccountLabel => switch (_launchAuthMode) {
-    AuthMode.offline => '离线 · $_offlinePlayerName',
-    AuthMode.microsoft => 'Microsoft 正版',
-    AuthMode.thirdParty => '第三方验证',
+    AuthMode.offline => _l10n.homeLocalProfile(_offlinePlayerName),
+    AuthMode.microsoft => _l10n.homeMicrosoftAccount,
+    AuthMode.thirdParty => _l10n.homeThirdPartyAccount,
   };
 
   ResourceDownloadActions _buildDownloadsHost() {
@@ -507,6 +533,7 @@ extension _HomeViewActions on _LauncherHomePageState {
       minecraftPath: _minecraftPath,
       localClients: () => _localVersions,
       selectedVersion: _selectedVersion,
+      selectedLaunchVersionPath: _selectedLaunchVersionId,
       minecraftClientNameController: _minecraftClientNameController,
       onLoadManagedMods: _loadManagedMods,
       onChooseDownloadClient: _chooseDownloadClient,

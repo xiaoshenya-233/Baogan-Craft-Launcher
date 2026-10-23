@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import 'controllers/launcher_shell_controller.dart';
 import 'launcher_palette.dart';
 
@@ -18,6 +19,7 @@ class LauncherSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = LauncherPalette.fromDark(isDark);
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       width: 220,
       padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
@@ -28,40 +30,40 @@ class LauncherSidebar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _groupLabel(palette, '启动器'),
-          _navItem(palette, Icons.home_rounded, '主页', LauncherTab.home),
+          _groupLabel(palette, l10n.navGroupLauncher),
+          _navItem(palette, Icons.home_rounded, l10n.navHome, LauncherTab.home),
           _navItem(
             palette,
             Icons.inventory_2_outlined,
-            '版本管理',
+            l10n.navVersions,
             LauncherTab.versions,
           ),
           _navItem(
             palette,
             Icons.cloud_download_outlined,
-            '资源下载',
+            l10n.navDownloads,
             LauncherTab.downloads,
           ),
           _navItem(
             palette,
             Icons.settings_outlined,
-            '设置',
+            l10n.navSettings,
             LauncherTab.settings,
           ),
           const SizedBox(height: 14),
           Divider(color: palette.panelBorderColor, height: 1),
           const SizedBox(height: 14),
-          _groupLabel(palette, '实用工具'),
+          _groupLabel(palette, l10n.navTools),
           _navItem(
             palette,
             Icons.downloading_rounded,
-            '下载任务',
+            l10n.navTasks,
             LauncherTab.downloadTasks,
           ),
           _navItem(
             palette,
             Icons.handyman_outlined,
-            '工作台',
+            l10n.navWorkbench,
             LauncherTab.workbench,
           ),
         ],

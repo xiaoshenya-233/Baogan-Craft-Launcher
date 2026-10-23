@@ -176,6 +176,50 @@ void main() {
     expect(lookup?.aliases['just enough items'], 'JEI物品管理器');
   });
 
+  test('mcmod item entries are rejected or reduced to the mod name', () {
+    const scrapedItemTitle = '(物品/方块) Meka工具 (Meka-Tool) - [Mek] 通用机械';
+
+    expect(cleanChineseTitle(scrapedItemTitle), '通用机械');
+    expect(cleanChineseTitle('[Mek] 通用机械'), '通用机械');
+    expect(cleanChineseTitle('钠 (Sodium)'), '钠');
+
+    // Pure wiki entry pages have no mod name to recover.
+    expect(cleanChineseTitle('(物品/方块) Meka工具'), '');
+    expect(cleanChineseTitle('(物品/方块) 富集铀锭 (Enriched Uranium Ingot)'), '');
+    expect(cleanChineseTitle('(多方块结构) 聚变反应堆'), '');
+    expect(cleanChineseTitle('(教程) 通用机械入门'), '');
+    expect(cleanChineseTitle('（物品/方块）Meka工具'), '');
+    expect(isValidChineseModTitle('(物品/方块) Meka工具'), isFalse);
+    expect(isValidChineseModTitle('通用机械'), isTrue);
+    expect(cleanChineseTitle('模' * 21), '');
+
+    final lookup = chineseTitleLookupFromApiResponse(
+      jsonEncode([
+        {
+          'title': scrapedItemTitle,
+          'data': {
+            'chinese_name': scrapedItemTitle,
+            'sub_name': 'Mekanism',
+            'abbr': 'Mek',
+          },
+        },
+      ]),
+      'Mekanism',
+    );
+    expect(lookup?.chinese, '通用机械');
+
+    final itemOnly = jsonEncode([
+      {
+        'title': '(物品/方块) 富集铀锭 (Enriched Uranium Ingot)',
+        'data': {
+          'chinese_name': '(物品/方块) 富集铀锭',
+          'sub_name': 'Enriched Uranium Ingot',
+        },
+      },
+    ]);
+    expect(chineseTitleFromApiResponse(itemOnly, 'Enriched Uranium Ingot'), isNull);
+  });
+
   test('mcmod semaphore caps concurrent requests at two', () async {
     final semaphore = AsyncSemaphore(2);
     var active = 0;
@@ -699,17 +743,17 @@ void main() {
     expect(find.text('游戏配置'), findsNothing);
     expect(find.byTooltip('查看客户端配置'), findsOneWidget);
     expect(find.text('登录方式'), findsOneWidget);
-    expect(find.text('离线模式'), findsOneWidget);
+    expect(find.text('本地档案'), findsOneWidget);
     expect(find.text('玩家：Player'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('登录方式'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('当前：离线模式'), findsOneWidget);
-    expect(find.text('Microsoft 正版'), findsOneWidget);
+    expect(find.text('当前：本地档案'), findsOneWidget);
+    expect(find.text('Microsoft 登录'), findsOneWidget);
     expect(find.text('第三方验证'), findsOneWidget);
-    expect(find.text('启动时通过 Microsoft 设备码登录正版账号。'), findsOneWidget);
+    expect(find.text('一键登录：点击后显示设备码，无需任何额外配置。'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tapAt(const Offset(10, 10));
     await tester.pump(const Duration(milliseconds: 300));

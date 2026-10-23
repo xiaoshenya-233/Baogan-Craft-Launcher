@@ -187,7 +187,7 @@ class MinecraftLaunchService {
         'classpath_separator': classpathSeparator,
         'classpath': launchClassPath.join(classpathSeparator),
         'launcher_name': 'BLOCK_LAUNCHER',
-        'launcher_version': '1.0.0',
+        'launcher_version': '26.1alpha1.1',
       };
 
       final jvmArguments = _argumentList(
@@ -205,7 +205,7 @@ class MinecraftLaunchService {
         '-Xmx${math.max(1, memoryGb)}G',
         '-Djava.library.path=${nativesDirectory.path}',
         '-Dminecraft.launcher.brand=BLOCK_LAUNCHER',
-        '-Dminecraft.launcher.version=1.0.0',
+        '-Dminecraft.launcher.version=26.1alpha1.1',
         if (javaAgent != null) '-javaagent:$javaAgent',
         ...jvmArguments.map((value) {
           var replaced = _replacePlaceholders(value, placeholders);

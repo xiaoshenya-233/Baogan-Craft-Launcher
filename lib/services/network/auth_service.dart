@@ -137,7 +137,7 @@ class OfflineProfileStore {
     if (await profilesFile.exists()) {
       final decoded = jsonDecode(await profilesFile.readAsString());
       if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('离线玩家配置文件格式无效。');
+        throw const FormatException('本地档案配置文件格式无效。');
       }
       profiles.addAll(decoded);
     }
@@ -312,15 +312,19 @@ class MinecraftAuthService {
 
   static final RegExp _playerNamePattern = RegExp(r'^[A-Za-z0-9_]{3,16}$');
 
+  /// Resolves a local profile: the UUID is derived offline and the token is a
+  /// placeholder, so this method never talks to Microsoft or Mojang services.
   Future<AuthIdentity> authenticateOffline(String playerName) async {
     final name = playerName.trim();
     if (!_playerNamePattern.hasMatch(name)) {
-      throw const FormatException('离线玩家名称必须为 3 至 16 位字母、数字或下划线。');
+      throw const FormatException('本地档案名称必须为 3 至 16 位字母、数字或下划线。');
     }
     final uuid = await _offlineProfiles.uuidFor(name);
     return AuthIdentity(
       name: name,
       uuid: uuid,
+      // Placeholder only: local profiles must never present a real session
+      // token to Mojang APIs.
       accessToken: '0',
       userType: 'legacy',
     );
@@ -406,18 +410,22 @@ class MicrosoftDeviceCode {
   final int interval;
 }
 
-/// Microsoft OAuth device-code authentication for Minecraft.
+/// Legacy Microsoft OAuth device-code helper.
+///
+/// The UI signs in through `MicrosoftConnectService` (public client id), so this
+/// class only remains for protocol-level reuse. It also falls back to the same
+/// public id instead of asking the player for one.
 class MicrosoftAuthService {
   const MicrosoftAuthService({AuthHttpClient? httpClient})
     : _httpClient = httpClient ?? const AuthHttpClient();
 
+  static const String defaultClientId = 'fcb9776-0d60-4879-984b-bb833bd55152';
+
   final AuthHttpClient _httpClient;
 
   Future<MicrosoftDeviceCode> requestDeviceCode(String rawClientId) async {
-    final clientId = rawClientId.trim();
-    if (clientId.isEmpty) {
-      throw const FormatException('请先填写 Microsoft OAuth 客户端 ID。');
-    }
+    final trimmed = rawClientId.trim();
+    final clientId = trimmed.isEmpty ? defaultClientId : trimmed;
     final deviceCode = await _httpClient.requestJson(
       Uri.https(
         'login.microsoftonline.com',
@@ -452,10 +460,8 @@ class MicrosoftAuthService {
     required String rawClientId,
     required MicrosoftDeviceCode deviceCode,
   }) async {
-    final clientId = rawClientId.trim();
-    if (clientId.isEmpty) {
-      throw const FormatException('请先填写 Microsoft OAuth 客户端 ID。');
-    }
+    final trimmed = rawClientId.trim();
+    final clientId = trimmed.isEmpty ? defaultClientId : trimmed;
     final deadline = DateTime.now().add(
       Duration(seconds: deviceCode.expiresIn),
     );

@@ -1,7 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/network/auth_service.dart';
 import '../client_tile.dart';
+
+/// Localized display label for an [AuthMode]; enum labels stay untouched.
+String authModeLabel(AuthMode mode, AppLocalizations l10n) => switch (mode) {
+  AuthMode.offline => l10n.authModeLocalProfile,
+  AuthMode.microsoft => l10n.authModeMicrosoft,
+  AuthMode.thirdParty => l10n.authModeThirdParty,
+};
+
+String authModeDescription(AuthMode mode, AppLocalizations l10n) =>
+    switch (mode) {
+      AuthMode.offline => l10n.authModeLocalProfileDesc,
+      AuthMode.microsoft => l10n.authModeMicrosoftDesc,
+      AuthMode.thirdParty => l10n.authModeThirdPartyDesc,
+    };
 
 class LoginMethodSheet extends StatelessWidget {
   const LoginMethodSheet({
@@ -30,6 +45,7 @@ class LoginMethodSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.72,
@@ -61,13 +77,18 @@ class LoginMethodSheet extends StatelessWidget {
                   color: colors.accent,
                 ),
                 const SizedBox(width: 9),
-                const Text(
-                  '登录方式',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                Text(
+                  l10n.loginMethodTitle,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const Spacer(),
                 Text(
-                  '当前：${currentMode.label}',
+                  l10n.loginMethodCurrent(
+                    authModeLabel(currentMode, l10n),
+                  ),
                   style: TextStyle(fontSize: 11, color: colors.muted),
                 ),
               ],
@@ -87,6 +108,7 @@ class LoginMethodSheet extends StatelessWidget {
                     if (index > 0) const SizedBox(height: 8),
                     _LoginModeRow(
                       mode: AuthMode.values[index],
+                      l10n: l10n,
                       selected: AuthMode.values[index] == currentMode,
                       colors: colors,
                       onTap: () =>
@@ -95,8 +117,7 @@ class LoginMethodSheet extends StatelessWidget {
                   ],
                   const SizedBox(height: 12),
                   Text(
-                    '选择后会立即保存。账号资料将在启动游戏时填写；'
-                    '离线玩家名称和认证服务器等信息会保存在本机。',
+                    l10n.loginMethodHint,
                     style: TextStyle(
                       fontSize: 10,
                       color: colors.muted,
@@ -116,12 +137,14 @@ class LoginMethodSheet extends StatelessWidget {
 class _LoginModeRow extends StatelessWidget {
   const _LoginModeRow({
     required this.mode,
+    required this.l10n,
     required this.selected,
     required this.colors,
     required this.onTap,
   });
 
   final AuthMode mode;
+  final AppLocalizations l10n;
   final bool selected;
   final LauncherUiColors colors;
   final VoidCallback onTap;
@@ -133,12 +156,7 @@ class _LoginModeRow extends StatelessWidget {
       AuthMode.microsoft => Icons.account_circle_outlined,
       AuthMode.thirdParty => Icons.dns_outlined,
     };
-    final description = switch (mode) {
-      AuthMode.offline => '使用玩家名称进入单人世界及允许离线登录的服务器。',
-      AuthMode.microsoft => '启动时通过 Microsoft 设备码登录正版账号。',
-      AuthMode.thirdParty =>
-        '使用 LittleSkin 等 Yggdrasil 服务；启动器内置 authlib-injector。',
-    };
+    final description = authModeDescription(mode, l10n);
     return Material(
       color: selected ? colors.selectedSurface : colors.panelAccent,
       borderRadius: BorderRadius.circular(10),
@@ -164,7 +182,7 @@ class _LoginModeRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      mode.label,
+                      authModeLabel(mode, l10n),
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,

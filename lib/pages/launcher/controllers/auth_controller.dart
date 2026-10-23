@@ -28,14 +28,12 @@ class AuthController extends ChangeNotifier {
 
   AuthMode _mode = AuthMode.offline;
   String _offlinePlayerName = 'Player';
-  String _microsoftClientId = '';
   String _thirdPartyAuthServer = defaultThirdPartyAuthServer;
   List<UserAccount> _accounts = const <UserAccount>[];
   UserAccount? _currentAccount;
 
   AuthMode get mode => _mode;
   String get offlinePlayerName => _offlinePlayerName;
-  String get microsoftClientId => _microsoftClientId;
   String get thirdPartyAuthServer => _thirdPartyAuthServer;
 
   /// All stored accounts (metadata + decrypted tokens).
@@ -47,7 +45,6 @@ class AuthController extends ChangeNotifier {
   void applyPreferences({
     String? modeName,
     String? offlinePlayerName,
-    String? microsoftClientId,
     String? thirdPartyAuthServer,
   }) {
     _mode = AuthMode.values.firstWhere(
@@ -57,9 +54,6 @@ class AuthController extends ChangeNotifier {
     if (offlinePlayerName != null &&
         RegExp(r'^[A-Za-z0-9_]{3,16}$').hasMatch(offlinePlayerName)) {
       _offlinePlayerName = offlinePlayerName;
-    }
-    if (microsoftClientId != null) {
-      _microsoftClientId = microsoftClientId;
     }
     if (thirdPartyAuthServer != null &&
         thirdPartyAuthServer.trim().isNotEmpty) {
@@ -80,13 +74,6 @@ class AuthController extends ChangeNotifier {
     _offlinePlayerName = name;
     notifyListeners();
     await _write('offlinePlayerName', name);
-  }
-
-  Future<void> updateMicrosoftClientId(String clientId) async {
-    if (_microsoftClientId == clientId) return;
-    _microsoftClientId = clientId;
-    notifyListeners();
-    await _write('microsoftClientId', clientId);
   }
 
   Future<void> updateThirdPartyAuthServer(String server) async {

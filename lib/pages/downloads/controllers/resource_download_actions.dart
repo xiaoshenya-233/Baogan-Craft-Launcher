@@ -27,6 +27,7 @@ class ResourceDownloadActions {
     required this.minecraftPath,
     required this.localClients,
     required this.selectedVersion,
+    this.selectedLaunchVersionPath,
     required this.minecraftClientNameController,
     required this.onLoadManagedMods,
     required this.onChooseDownloadClient,
@@ -75,6 +76,12 @@ class ResourceDownloadActions {
   /// All installed clients; read lazily so the list stays current.
   final List<MinecraftVersion> Function() localClients;
   final LauncherVersion? selectedVersion;
+
+  /// Directory path of the client currently selected for launching.
+  ///
+  /// This is the authoritative "current client" for resource installs; it comes
+  /// from `VersionCatalogController.selectedLaunchVersionId`.
+  final String? selectedLaunchVersionPath;
   final TextEditingController minecraftClientNameController;
   final Future<void> Function(LauncherVersion) onLoadManagedMods;
   final Future<MinecraftVersion?> Function({List<MinecraftVersion>? candidates})
@@ -175,6 +182,8 @@ class ResourceDownloadActions {
       gameVersions: gameVersions,
       loaders: loaders,
       modTitle: modTitle,
+      preferredClientPath:
+          selectedLaunchVersionPath ?? _selectedVersion?.path,
     );
     if (selection == null) return null;
     final customPath = selection.customPath;
@@ -605,12 +614,6 @@ class ResourceDownloadActions {
     cancellation?.throwIfCancelled();
 
     _setPageState(() => _activeDownloadTask = '正在下载：${project.title}');
-    if (project.category == DownloadCategory.mods &&
-        selected.loaderType == null &&
-        customRootPath == null) {
-      _showVersionMessage('模组需安装到已配置 Fabric、Forge、NeoForge 等加载器的客户端。');
-      return false;
-    }
     final Iterable<ModrinthVersion> compatible;
     if (customRootPath != null) {
       // A hand-picked folder carries no client metadata to validate against.
@@ -632,15 +635,17 @@ class ResourceDownloadActions {
         return hasGameVersion && hasLoader;
       });
     }
-    if (compatible.isEmpty) {
-      _showVersionMessage('「${project.title}」没有与当前客户端版本和加载器兼容的文件。');
+    // The player explicitly picked this client in the target picker, so an
+    // incompatible version is allowed on purpose (e.g. Sinytra Connector).
+    // Prefer the requested file, then the best compatible one, then any file.
+    final version =
+        requestedVersion ?? compatible.firstOrNull ?? project.versions.firstOrNull;
+    if (version == null) {
+      _showVersionMessage(
+        '${project.source.label} 没有为「${project.title}」提供可下载文件。',
+      );
       return false;
     }
-    if (requestedVersion != null && !compatible.contains(requestedVersion)) {
-      _showVersionMessage('所选版本与当前客户端的 Minecraft 版本或加载器不兼容。');
-      return false;
-    }
-    final version = requestedVersion ?? compatible.first;
     final fileInfo = version.files.firstOrNull;
     if (fileInfo == null) {
       _showVersionMessage(

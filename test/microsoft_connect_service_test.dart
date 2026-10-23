@@ -2,18 +2,11 @@ import 'package:baogan_craft_launcher/services/network/microsoft_connect_service
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('rejects a missing Azure client id without network access', () async {
-    const service = MicrosoftConnectService();
-    await expectLater(
-      service.signIn(clientId: '   ', onDeviceCode: (_) {}),
-      throwsA(
-        isA<MicrosoftConnectException>().having(
-          (error) => error.failure,
-          'failure',
-          MicrosoftConnectFailure.notConfigured,
-        ),
-      ),
-    );
+  test('blank client ids fall back to the launcher client id', () {
+    expect(defaultMicrosoftClientId, 'fcb9776-0d60-4879-984b-bb833bd55152');
+    expect(MicrosoftConnectService.resolveClientId(null), defaultMicrosoftClientId);
+    expect(MicrosoftConnectService.resolveClientId('   '), defaultMicrosoftClientId);
+    expect(MicrosoftConnectService.resolveClientId(' custom-id '), 'custom-id');
   });
 
   test('device code prompt exposes a readable expiry', () {
