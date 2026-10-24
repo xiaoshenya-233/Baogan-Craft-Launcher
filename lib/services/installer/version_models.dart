@@ -411,4 +411,3 @@ bool isValidMinecraftClientName(String name) {
   final base = trimmed.split('.').first.toUpperCase();
   return !RegExp(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$').hasMatch(base);
 }
-

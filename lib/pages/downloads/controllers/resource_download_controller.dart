@@ -26,12 +26,17 @@ class ResourceDownloadController extends ChangeNotifier {
   ModrinthProject? detailProject;
   bool isLoadingDetail = false;
   String? detailError;
+  int detailVersionOffset = 0;
+  bool detailHasMoreVersions = false;
+  bool isLoadingMoreDetailVersions = false;
+  String? detailPageError;
   String? selectedLoader;
   String? selectedGameFamily;
   String? expandedGameVersion;
   int page = 0;
   int requestId = 0;
   bool isDownloading = false;
+  bool _disposed = false;
 
   void beginRequest() {
     requestId++;
@@ -132,6 +137,10 @@ class ResourceDownloadController extends ChangeNotifier {
     detailProject = project;
     detailError = null;
     isLoadingDetail = true;
+    detailVersionOffset = 0;
+    detailHasMoreVersions = false;
+    isLoadingMoreDetailVersions = false;
+    detailPageError = null;
     selectedLoader = null;
     selectedGameFamily = null;
     expandedGameVersion = null;
@@ -142,6 +151,10 @@ class ResourceDownloadController extends ChangeNotifier {
     detailProject = null;
     detailError = null;
     isLoadingDetail = false;
+    detailVersionOffset = 0;
+    detailHasMoreVersions = false;
+    isLoadingMoreDetailVersions = false;
+    detailPageError = null;
     selectedLoader = null;
     selectedGameFamily = null;
     expandedGameVersion = null;
@@ -246,7 +259,7 @@ class ResourceDownloadController extends ChangeNotifier {
         );
       }
       await Future.wait(tasks);
-      if (!isCurrentRequest(request)) return;
+      if (_disposed || !isCurrentRequest(request)) return;
       final failure = firstFailure;
       if (pages.isEmpty && failure is Exception) throw failure;
       final merged = pages.expand((page) => page.projects).toList();
@@ -297,7 +310,7 @@ class ResourceDownloadController extends ChangeNotifier {
   }
 
   void _failRequest(int request, String message) {
-    if (!isCurrentRequest(request)) return;
+    if (_disposed || !isCurrentRequest(request)) return;
     loadError = message;
     isLoading = false;
     notifyListeners();
@@ -382,6 +395,7 @@ class ResourceDownloadController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _searchDebounce?.cancel();
     searchController.dispose();
     candidateManager.clear();
@@ -414,6 +428,10 @@ class ResourceDownloadController extends ChangeNotifier {
     }
     for (final tag in project.tags) {
       final key = resourceLoaderKey(tag);
+      if (key.isNotEmpty) keys.add(key);
+    }
+    for (final loader in project.supportedLoaders) {
+      final key = resourceLoaderKey(loader);
       if (key.isNotEmpty) keys.add(key);
     }
     return _orderedResourceLoaderKeys(keys);
@@ -527,6 +545,55 @@ class ResourceDownloadController extends ChangeNotifier {
       ..sort((left, right) => right.downloads.compareTo(left.downloads));
   }
 
+  ModrinthVersion? matchVersionForClient(
+    ModrinthProject project,
+    MinecraftVersion client, {
+    ModrinthVersion? preferred,
+  }) {
+    bool matches(ModrinthVersion version) {
+      final primaryFile = version.files.firstOrNull;
+      if (primaryFile == null || primaryFile.url.isEmpty) return false;
+      final minecraftVersion = client.minecraftVersion?.trim();
+      if (minecraftVersion != null && minecraftVersion.isNotEmpty) {
+        final family = resourceVersionFamily(minecraftVersion);
+        if (!version.gameVersions.any(
+          (candidate) => resourceVersionFamily(candidate) == family,
+        )) {
+          return false;
+        }
+      }
+      if (project.category == DownloadCategory.mods) {
+        final loader = client.loaderType?.trim();
+        if (loader != null && loader.isNotEmpty) {
+          final key = resourceLoaderKey(loader);
+          if (key.isNotEmpty) {
+            if (!versionMatchesLoader(
+              project,
+              version,
+              key,
+              projectLoaders: projectLoaderKeys(project),
+            )) {
+              return false;
+            }
+          } else {
+            final normalized = loader.toLowerCase();
+            if (!version.loaders.any(
+              (candidate) => candidate.toLowerCase().contains(normalized),
+            )) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    if (preferred != null && matches(preferred)) return preferred;
+    final matching = project.versions.where(matches).toList()
+      ..sort((left, right) => right.downloads.compareTo(left.downloads));
+    return matching.firstOrNull;
+  }
+
   bool isVersionCandidate(ModrinthProject project, ModrinthVersion version) {
     final candidate = candidateManager.find(project.id)?.version;
     return candidate != null &&
@@ -545,8 +612,7 @@ class ResourceDownloadController extends ChangeNotifier {
         candidateManager.remove(project.id);
       } else {
         final loaderKey =
-            selectedLoader == null ||
-                selectedLoader == allResourceLoaderKey
+            selectedLoader == null || selectedLoader == allResourceLoaderKey
             ? version.loaders
                   .map(resourceLoaderKey)
                   .where((key) => key.isNotEmpty)
@@ -576,5 +642,4 @@ class ResourceDownloadController extends ChangeNotifier {
     selectedGameFamily = groups.keys.firstOrNull;
     expandedGameVersion = null;
   }
-
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:baogan_craft_launcher/core/preferences_store.dart';
 import 'package:baogan_craft_launcher/services/network/account_manager.dart';
 import 'package:baogan_craft_launcher/services/network/account_models.dart';
+import 'package:baogan_craft_launcher/services/network/auth_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _MemoryTokenStore implements SecureTokenStore {
@@ -75,7 +76,28 @@ void main() {
     expect(await manager.currentAccountId(), 'microsoft:abc');
   });
 
-  test('loadAccounts restores tokens and getCurrentAccount returns it', () async {
+  test(
+    'loadAccounts restores tokens and getCurrentAccount returns it',
+    () async {
+      const account = UserAccount(
+        id: 'offline:steve',
+        name: 'Steve',
+        uuid: 'steve',
+        type: AccountType.offline,
+      );
+      await manager.addAccount(account, 'secret-token');
+
+      final loaded = await manager.loadAccounts();
+      expect(loaded, hasLength(1));
+      expect(loaded.single.accessToken, 'secret-token');
+      final current = await manager.getCurrentAccount();
+      expect(current?.name, 'Steve');
+      expect(current?.type, AccountType.offline);
+      expect(current?.toIdentity().userType, 'legacy');
+    },
+  );
+
+  test('updateName renames an account and keeps its token', () async {
     const account = UserAccount(
       id: 'offline:steve',
       name: 'Steve',
@@ -84,13 +106,15 @@ void main() {
     );
     await manager.addAccount(account, 'secret-token');
 
+    final updated = await manager.updateName(account.id, '  Alex_01  ');
+    expect(updated?.name, 'Alex_01');
     final loaded = await manager.loadAccounts();
-    expect(loaded, hasLength(1));
+    expect(loaded.single.name, 'Alex_01');
     expect(loaded.single.accessToken, 'secret-token');
-    final current = await manager.getCurrentAccount();
-    expect(current?.name, 'Steve');
-    expect(current?.type, AccountType.offline);
-    expect(current?.toIdentity().userType, 'legacy');
+    expect(await manager.currentAccountId(), account.id);
+
+    expect(await manager.updateName(account.id, '   '), isNull);
+    expect((await manager.loadAccounts()).single.name, 'Alex_01');
   });
 
   test('removeAccount clears tokens and moves the current id', () async {
@@ -117,4 +141,35 @@ void main() {
     expect(remaining.map((account) => account.id), [second.id]);
     expect(await manager.currentAccountId(), second.id);
   });
+
+  test(
+    'third-party account keeps its token and agent for the next session',
+    () async {
+      final identity = AuthIdentity(
+        name: 'Alex',
+        uuid: 'third-uuid',
+        accessToken: 'ygg-token',
+        userType: 'mojang',
+        javaAgent: 'authlib-injector.jar=https://littleskin.cn/api/yggdrasil',
+      );
+      final account = UserAccount.fromIdentity(identity);
+      await manager.addAccount(
+        account,
+        identity.accessToken,
+        refreshToken: 'refresh-token',
+      );
+
+      final loaded = await manager.loadAccounts();
+      expect(loaded.single.type, AccountType.thirdParty);
+      expect(loaded.single.accessToken, 'ygg-token');
+      expect(loaded.single.refreshToken, 'refresh-token');
+      expect(loaded.single.javaAgent, contains('littleskin.cn'));
+
+      final current = await manager.getCurrentAccount();
+      expect(current?.id, account.id);
+      expect(current?.toIdentity().userType, 'mojang');
+      expect(current?.toIdentity().accessToken, 'ygg-token');
+      expect(current?.toIdentity().javaAgent, contains('littleskin.cn'));
+    },
+  );
 }

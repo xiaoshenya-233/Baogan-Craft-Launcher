@@ -7,10 +7,15 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show compute;
 
 import '../../core/launcher_log.dart';
 import '../../core/path_utils.dart';
 import 'version_parser.dart';
+
+/// Runs on a background isolate so hashing large downloads never blocks UI.
+String _sha1HexDigest(List<int> bytes) => sha1.convert(bytes).toString();
+
 class ModpackInstaller {
   const ModpackInstaller();
 
@@ -275,16 +280,12 @@ class ModpackInstaller {
     try {
       final versionsDirectory = client.parent;
       final clientName = installerLastPathSegment(client.path);
-      if (modpackVersionKey(
-            installerLastPathSegment(versionsDirectory.path),
-          ) !=
+      if (modpackVersionKey(installerLastPathSegment(versionsDirectory.path)) !=
           'versions') {
         LauncherLog.warning('Modpack', '跳过临时版本清理：客户端不在 versions 目录内。');
         return;
       }
-      final clientConfig = File(
-        joinPath(client.path, '$clientName.json'),
-      );
+      final clientConfig = File(joinPath(client.path, '$clientName.json'));
       if (!await clientConfig.exists()) {
         LauncherLog.warning('Modpack', '跳过临时版本清理：整合包版本 JSON 不存在。');
         return;
@@ -532,9 +533,7 @@ class ModpackInstaller {
           modpackVersionKey(id) == modpackVersionKey(clientName)) {
         continue;
       }
-      final versionDirectory = Directory(
-        joinPath(versionsDirectory.path, id),
-      );
+      final versionDirectory = Directory(joinPath(versionsDirectory.path, id));
       if (await FileSystemEntity.type(
             versionDirectory.path,
             followLinks: false,
@@ -546,9 +545,7 @@ class ModpackInstaller {
         File(joinPath(versionDirectory.path, '$id.jar')),
         File(joinPath(versionDirectory.path, 'client.jar')),
       ];
-      final configFile = File(
-        joinPath(versionDirectory.path, '$id.json'),
-      );
+      final configFile = File(joinPath(versionDirectory.path, '$id.json'));
       if (await configFile.exists()) {
         try {
           final decoded = jsonDecode(await configFile.readAsString());
@@ -633,7 +630,7 @@ class ModpackInstaller {
       }
       final client = HttpClient()
         ..connectionTimeout = const Duration(seconds: 15)
-        ..userAgent = 'BlockLauncher/26.1alpha1.1 (modpack installer)';
+        ..userAgent = 'BlockLauncher/26.1alpha2 (modpack installer)';
       IOSink? sink;
       try {
         final uri = Uri.tryParse(download);
@@ -665,7 +662,7 @@ class ModpackInstaller {
         await sink.flush();
         await sink.close();
         sink = null;
-        final digest = sha1.convert(bytes.takeBytes()).toString();
+        final digest = await compute(_sha1HexDigest, bytes.takeBytes());
         if (entry.sha1 != null && digest != entry.sha1) {
           throw FormatException(
             '文件校验失败：${entry.path}（期望 ${entry.sha1}，实际 $digest）',
@@ -757,4 +754,3 @@ class ModpackInstaller {
     return [root, ...cleanParts].join(Platform.pathSeparator);
   }
 }
-

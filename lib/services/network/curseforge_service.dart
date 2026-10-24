@@ -12,8 +12,8 @@ enum CurseForgeEndpoint { proxy, mcim, official }
 class CurseForgeService {
   static const int _minecraftGameId = 432;
 
-  /// Endpoint used by every subsequent request (proxy by default).
-  static CurseForgeEndpoint endpoint = CurseForgeEndpoint.proxy;
+  /// Endpoint used by every subsequent request (MCIM by default).
+  static CurseForgeEndpoint endpoint = CurseForgeEndpoint.mcim;
 
   static String get _apiHost => switch (endpoint) {
     CurseForgeEndpoint.official => 'api.curseforge.com',
@@ -40,7 +40,7 @@ class CurseForgeService {
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha2 (resource browser)';
     try {
       final parameters = <String, String>{
         'gameId': '$_minecraftGameId',
@@ -86,12 +86,12 @@ class CurseForgeService {
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha2 (resource browser)';
     try {
       final json = await _getJson(
         client,
         Uri.https(_apiHost, '$_apiPrefix/mods/$id'),
-      );
+      ).timeout(const Duration(seconds: 10));
       if (json is! Map<String, dynamic> ||
           json['data'] is! Map<String, dynamic>) {
         throw const FormatException('CurseForge 项目详情响应格式无效。');
@@ -102,47 +102,63 @@ class CurseForgeService {
     }
   }
 
-  static Future<List<ModrinthVersion>> fetchVersions(String id) async {
+  static Future<List<ModrinthVersion>> fetchVersionPage(
+    String id, {
+    int offset = 0,
+    int limit = resourceVersionPageSize,
+  }) async {
     final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
+      ..connectionTimeout = const Duration(seconds: 10)
+      ..userAgent = 'BlockLauncher/26.1alpha2 (resource browser)';
+    try {
+      final json = await _getJson(
+        client,
+        Uri.https(_apiHost, '$_apiPrefix/mods/$id/files', {
+          'index': '$offset',
+          'pageSize': '$limit',
+        }),
+      ).timeout(const Duration(seconds: 10));
+      if (json is! Map<String, dynamic> || json['data'] is! List) {
+        throw const FormatException('CurseForge 文件列表响应格式无效。');
+      }
+      final versions = (json['data'] as List)
+          .whereType<Map<String, dynamic>>()
+          .map(_versionFromFile)
+          .whereType<ModrinthVersion>()
+          .toList(growable: false);
+      if (versions.length <= limit) return versions;
+      final start = offset < 0
+          ? 0
+          : (offset > versions.length ? versions.length : offset);
+      if (start >= versions.length) return const <ModrinthVersion>[];
+      final next = start + limit;
+      final end = next > versions.length ? versions.length : next;
+      return versions.sublist(start, end);
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// Fetches all file metadata for card counts. File rows are still loaded in
+  /// 20-entry pages by [fetchVersionPage].
+  static Future<List<ModrinthVersion>> fetchVersionIndex(String id) async {
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10)
+      ..userAgent = 'BlockLauncher/26.1alpha2 (resource browser)';
     try {
       const pageSize = 50;
       const maxPages = 1000;
       final versions = <ModrinthVersion>[];
       final seen = <String>{};
       var offset = 0;
-      int? totalCount;
-
       for (var page = 0; page < maxPages; page++) {
-        dynamic json;
-        Object? pageError;
-        for (var attempt = 0; attempt < 3; attempt++) {
-          try {
-            json = await _getJson(
-              client,
-              Uri.https(_apiHost, '$_apiPrefix/mods/$id/files', {
-                'index': '$offset',
-                'pageSize': '$pageSize',
-              }),
-            );
-            pageError = null;
-            break;
-          } on Exception catch (error) {
-            pageError = error;
-            if (attempt < 2) {
-              await Future<void>.delayed(
-                Duration(milliseconds: 300 * (attempt + 1)),
-              );
-            }
-          }
-        }
-        if (pageError != null) {
-          // A later page failing should not discard hundreds of versions that
-          // were already loaded successfully.
-          if (page == 0) throw pageError;
-          break;
-        }
+        final json = await _getJson(
+          client,
+          Uri.https(_apiHost, '$_apiPrefix/mods/$id/files', {
+            'index': '$offset',
+            'pageSize': '$pageSize',
+          }),
+        ).timeout(const Duration(seconds: 10));
         if (json is! Map<String, dynamic> || json['data'] is! List) {
           throw const FormatException('CurseForge 文件列表响应格式无效。');
         }
@@ -150,32 +166,16 @@ class CurseForgeService {
             .whereType<Map<String, dynamic>>()
             .toList();
         if (rows.isEmpty) break;
-
         for (final row in rows) {
           final version = _versionFromFile(row);
           if (version == null) continue;
-          final filename = firstOrNullOf(version.files)?.filename ?? '';
           final key =
-              '${version.name}|$filename|'
-              '${version.gameVersions.join(',')}|'
-              '${version.loaders.join(',')}';
+              version.versionId ??
+              '${version.name}|'
+                  '${version.files.map((file) => file.filename).join(',')}';
           if (seen.add(key)) versions.add(version);
         }
-
         offset += rows.length;
-        final pagination = json['pagination'];
-        final reportedTotal = pagination is Map<String, dynamic>
-            ? pagination['totalCount']
-            : null;
-        if (reportedTotal is int && reportedTotal >= 0) {
-          totalCount = reportedTotal;
-        }
-        // CurseForge reports totalCount. Keep using index/pageSize until all
-        // files have been collected; the short-page fallback handles mirrors
-        // that omit pagination metadata.
-        if (totalCount != null && totalCount > 0 && offset >= totalCount) {
-          break;
-        }
         if (rows.length < pageSize) break;
       }
       return versions;
@@ -202,9 +202,9 @@ class CurseForgeService {
       final thumbnail = logo['thumbnailUrl'];
       final full = logo['url'];
       if (thumbnail is String && thumbnail.isNotEmpty) {
-        iconUrl = thumbnail;
+        iconUrl = mcimMirrorUrl(thumbnail);
       } else if (full is String && full.isNotEmpty) {
-        iconUrl = full;
+        iconUrl = mcimMirrorUrl(full);
       }
     }
     final categories = row['categories'];
@@ -219,6 +219,20 @@ class CurseForgeService {
         : const <String>[];
     final downloads = row['downloadCount'];
     final thumbsUp = row['thumbsUpCount'];
+    final supportedGameVersions = <String>{};
+    final supportedLoaders = <String>{};
+    final indexes = row['latestFilesIndexes'];
+    if (indexes is List) {
+      for (final entry in indexes.whereType<Map<String, dynamic>>()) {
+        final gameVersion = entry['gameVersion'];
+        if (gameVersion is String && gameVersion.isNotEmpty) {
+          final normalized = apiNormalizeGameVersions(<String>[gameVersion]);
+          supportedGameVersions.addAll(normalized);
+        }
+        final loader = _loaderFromTypeId(entry['modLoader']);
+        if (loader != null) supportedLoaders.add(loader);
+      }
+    }
     return ModrinthProject(
       id: id,
       title: name is String && name.isNotEmpty ? name : '未命名资源',
@@ -230,6 +244,8 @@ class CurseForgeService {
       versions: _versionsFromMod(row),
       tags: tags,
       source: ResourceSource.curseForge,
+      supportedGameVersions: supportedGameVersions.toList(growable: false),
+      supportedLoaders: supportedLoaders.toList(growable: false),
     );
   }
 
@@ -291,7 +307,7 @@ class CurseForgeService {
     final remoteUrl = row['downloadUrl'];
     final fileId = row['id'];
     final url = remoteUrl is String && remoteUrl.isNotEmpty
-        ? remoteUrl
+        ? mcimMirrorUrl(remoteUrl)
         : fileId is int
         ? _cdnDownloadUrl(fileId, filename)
         : null;
@@ -377,7 +393,7 @@ class CurseForgeService {
   }
 
   static String _cdnDownloadUrl(int fileId, String filename) {
-    return 'https://edge.forgecdn.net/files/${fileId ~/ 1000}/'
+    return 'https://$mcimApiHost/files/${fileId ~/ 1000}/'
         '${fileId % 1000}/${Uri.encodeComponent(filename)}';
   }
 

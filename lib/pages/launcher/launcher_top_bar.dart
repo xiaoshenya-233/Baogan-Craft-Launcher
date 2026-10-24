@@ -9,7 +9,7 @@ import '../../widgets/launcher/launcher_common.dart';
 class LauncherTopBar extends StatelessWidget {
   const LauncherTopBar({
     super.key,
-    required this.activeDownloadBanner,
+    required this.activityBanner,
     required this.isDark,
     required this.isMaximized,
     required this.onStartDrag,
@@ -18,7 +18,7 @@ class LauncherTopBar extends StatelessWidget {
     required this.onClose,
   });
 
-  final Widget? activeDownloadBanner;
+  final Widget? activityBanner;
   final bool isDark;
   final bool isMaximized;
   final Future<void> Function() onStartDrag;
@@ -69,12 +69,12 @@ class LauncherTopBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (activeDownloadBanner != null) ...[
+                if (activityBanner != null) ...[
                   const SizedBox(width: 12),
                   Expanded(
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: activeDownloadBanner,
+                      child: activityBanner,
                     ),
                   ),
                 ],

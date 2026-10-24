@@ -28,8 +28,10 @@ class TargetClientSelection {
 }
 
 /// `target` is null when the user picked a directory manually.
-typedef TargetClientCallback =
-    void Function(LauncherVersion? target, String? customPath);
+typedef TargetClientCallback = void Function(
+  LauncherVersion? target,
+  String? customPath,
+);
 
 /// Material 3 dialog that asks where a mod/resource should be installed.
 ///
@@ -191,10 +193,7 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
   }
 
   static String _normalizeLoader(String? loaderType) {
-    final value = (loaderType ?? '')
-        .trim()
-        .toLowerCase()
-        .replaceAll(' ', '');
+    final value = (loaderType ?? '').trim().toLowerCase().replaceAll(' ', '');
     if (value.isEmpty || value == 'vanilla' || value == '原版') return 'vanilla';
     if (value.contains('neoforge')) return 'neoforge';
     if (value.contains('forge')) return 'forge';
@@ -304,16 +303,17 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
                 ),
               )
             else
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 340),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: widget.clients.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) =>
-                        _buildClientCard(widget.clients[index], l10n),
+              SizedBox(
+                height: math.min(340.0, widget.clients.length * 72.0),
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: widget.clients.length,
+                  itemExtent: 72,
+                  itemBuilder: (context, index) => RepaintBoundary(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildClientCard(widget.clients[index], l10n),
+                    ),
                   ),
                 ),
               ),
@@ -363,9 +363,7 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
       parts.add(l10n.targetClientSupportVersions('$versions$suffix'));
     }
     if (_hasLoaderFilter) {
-      parts.add(
-        l10n.targetClientSupportLoaders(widget.loaders.join(' / ')),
-      );
+      parts.add(l10n.targetClientSupportLoaders(widget.loaders.join(' / ')));
     }
     if (parts.isEmpty) return l10n.targetClientSupportNone;
     return parts.join(' · ');
@@ -373,10 +371,7 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
 
   /// Material 3 amber banner shown whenever the manual selection does not match
   /// the resource's declared version/loader.
-  Widget _buildMismatchWarning(
-    AppLocalizations l10n,
-    ColorScheme scheme,
-  ) {
+  Widget _buildMismatchWarning(AppLocalizations l10n, ColorScheme scheme) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -408,7 +403,6 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
       ),
     );
   }
-
 
   Widget _buildClientCard(LauncherVersion client, AppLocalizations l10n) {
     final theme = Theme.of(context);
@@ -509,5 +503,4 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
     if (parts.isEmpty) parts.add(l10n.commonUnknownVersion);
     return parts.join(' · ');
   }
-
 }

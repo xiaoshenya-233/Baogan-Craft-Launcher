@@ -1,6 +1,18 @@
 part of '../launcher_home_page.dart';
 
 extension _LaunchActions on _LauncherHomePageState {
+  void _terminateMinecraft() {
+    final session = _runningSession;
+    if (session == null) return;
+    _runningSession = null;
+    _isMinecraftRunning = false;
+    _minecraftTerminatedByLauncher = true;
+    if (mounted) _setPageState(() {});
+    session.terminate();
+    LauncherLog.info('Launch', '已通过启动器关闭 Minecraft 进程，PID=${session.pid}');
+    _showVersionMessage('已关闭 Minecraft 进程。');
+  }
+
   Future<void> _launchSelectedVersion() async {
     if (_isLaunching) return;
     final selectedId = _selectedLaunchVersionId;
@@ -11,7 +23,43 @@ extension _LaunchActions on _LauncherHomePageState {
       _showVersionMessage(_l10n.homeNeedInstalledVersion);
       return;
     }
-    await _launchVersion(matchingVersions.first);
+    const taskId = 'launch-minecraft';
+    final tasks = TaskActivityController.instance;
+    _launchCancelled = false;
+    _minecraftTerminatedByLauncher = false;
+    tasks.addTask(
+      LauncherTask(
+        id: taskId,
+        title: '正在启动 Minecraft',
+        icon: Icons.grass,
+        progress: null,
+        actions: <LauncherTaskAction>[
+          LauncherTaskAction(
+            icon: 'stop',
+            tooltip: '停止启动',
+            onPressed: () {
+              _launchCancelled = true;
+              _launchSession?.terminate();
+              tasks.removeTask(taskId);
+            },
+          ),
+        ],
+      ),
+    );
+    final started = await _launchVersion(matchingVersions.first);
+    if (started) {
+      tasks.updateTask(taskId, status: LauncherTaskStatus.success);
+      tasks.removeTask(taskId);
+    } else if (_launchCancelled) {
+      tasks.removeTask(taskId);
+    } else {
+      tasks.updateTask(taskId, status: LauncherTaskStatus.failed);
+      Timer(const Duration(seconds: 3), () {
+        if (tasks.taskById(taskId)?.status == LauncherTaskStatus.failed) {
+          tasks.removeTask(taskId);
+        }
+      });
+    }
   }
 
   /// 快速加入：以已保存服务器的地址启动客户端（`--server` / `--port`）。
@@ -27,28 +75,25 @@ extension _LaunchActions on _LauncherHomePageState {
       (version) => version.directoryPath == launcherVersion.path,
     );
     if (matching.isEmpty) {
-      _showVersionMessage(
-        _l10n.homeMissingLaunchConfig(launcherVersion.name),
-      );
+      _showVersionMessage(_l10n.homeMissingLaunchConfig(launcherVersion.name));
       return;
     }
     if ((_selectedJavaExecutable ?? '').trim().isEmpty &&
         _customJavaPath.trim().isEmpty &&
         _javaRuntimes.isEmpty &&
         _java.javaSelection != PreferencesStore.autoJavaValue) {
-      _showVersionMessage(
-        _l10n.homeJavaNotSelectedQuickJoin,
-      );
+      _showVersionMessage(_l10n.homeJavaNotSelectedQuickJoin);
       return;
     }
     await _launchVersion(matching.first, server: server);
   }
 
-  Future<void> _launchVersion(
+  Future<bool> _launchVersion(
     MinecraftVersion version, {
     ServerEntry? server,
   }) async {
-    if (_isLaunching) return;
+    if (_isLaunching) return false;
+    _launchCancelled = false;
     _setPageState(() => _isLaunching = true);
     LaunchPlan? launchPlan;
     try {
@@ -59,10 +104,7 @@ extension _LaunchActions on _LauncherHomePageState {
             '加载器 ${version.loaderType ?? '原版'} ${version.loaderVersion ?? ''}',
       );
       if (server != null) {
-        LauncherLog.info(
-          'Servers',
-          '快速加入目标：${server.name}（${server.address}）',
-        );
+        LauncherLog.info('Servers', '快速加入目标：${server.name}（${server.address}）');
       }
       LauncherLog.info('Launch', '认证模式：${_launchAuthMode.name}');
       final launchIdentity = await _authenticateForLaunch();
@@ -71,12 +113,13 @@ extension _LaunchActions on _LauncherHomePageState {
         if (mounted && server != null) {
           _showVersionMessage(_l10n.homeQuickJoinNoAccount);
         }
-        return;
+        return false;
       }
       LauncherLog.info(
         'Launch',
         '玩家：${launchIdentity.name} · 用户类型 ${launchIdentity.userType}',
       );
+      if (_launchCancelled) return false;
       // Per-client overrides (BGCL/client.json) win over the global defaults.
       final clientSettings = await ClientLaunchSettings.load(
         version.directoryPath,
@@ -88,22 +131,18 @@ extension _LaunchActions on _LauncherHomePageState {
               '内存=${clientSettings.ownMemoryGb?.round() ?? '跟随全局'} GB',
         );
       }
-      final effectiveMemoryGb =
-          (clientSettings.ownMemoryGb ?? _bgucMemoryGb).round();
+      final effectiveMemoryGb = (clientSettings.ownMemoryGb ?? _bgucMemoryGb)
+          .round();
       final String javaExecutable;
       try {
         javaExecutable = await _findJavaExecutable(version, clientSettings);
       } on StateError catch (error) {
-        _showVersionMessage(
-          _l10n.homeJavaRuntimeMissing(error.message),
-        );
-        return;
+        _showVersionMessage(_l10n.homeJavaRuntimeMissing(error.message));
+        return false;
       }
       if (javaExecutable.trim().isEmpty) {
-        _showVersionMessage(
-          _l10n.homeJavaNotSelected,
-        );
-        return;
+        _showVersionMessage(_l10n.homeJavaNotSelected);
+        return false;
       }
       LauncherLog.info('Launch', 'Java：$javaExecutable');
       final plan = await MinecraftLaunchService.buildArguments(
@@ -132,17 +171,31 @@ extension _LaunchActions on _LauncherHomePageState {
         'Launch',
         '启动参数：${redactLogSecrets(plan.arguments.join(' '))}',
       );
+      if (_launchCancelled) return false;
       final session = await _launchRunner.launch(
         javaExecutable: javaExecutable,
         plan: plan,
       );
+      _launchSession = session;
+      _runningSession = session;
+      _isMinecraftRunning = true;
+      if (mounted) _setPageState(() {});
       launchPlan = null;
       unawaited(
         session.waitForExit().then((result) async {
+          if (identical(_runningSession, session)) {
+            _runningSession = null;
+            _isMinecraftRunning = false;
+            if (mounted) _setPageState(() {});
+          }
+          final terminatedByLauncher = _minecraftTerminatedByLauncher;
+          _minecraftTerminatedByLauncher = false;
           if (result.cleanupError != null && mounted) {
             _showVersionMessage(result.cleanupError!);
           }
-          if (!mounted || result.exitCode == 0) return;
+          if (!mounted || result.exitCode == 0 || terminatedByLauncher) {
+            return;
+          }
           await _handleMinecraftLaunchFailure(
             version: version,
             javaExecutable: javaExecutable,
@@ -151,46 +204,51 @@ extension _LaunchActions on _LauncherHomePageState {
           );
         }),
       );
-      if (!mounted) return;
+      if (!mounted) return true;
       _setPageState(() => _isLaunching = false);
       _showVersionMessage(
         server == null
             ? _l10n.homeLaunching(version.id)
-            : _l10n.homeLaunchingJoin(
-                version.id,
-                server.name,
-                server.address,
-              ),
+            : _l10n.homeLaunchingJoin(version.id, server.name, server.address),
       );
+      return true;
     } on FormatException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _setPageState(() => _isLaunching = false);
       _showVersionMessage(error.message);
+      return false;
     } on FileSystemException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _setPageState(() => _isLaunching = false);
       _showVersionMessage(_l10n.homeLaunchFilesUnavailable(error.message));
+      return false;
     } on ProcessException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _setPageState(() => _isLaunching = false);
       _showVersionMessage(_l10n.homeJavaStartFailed(error.message));
+      return false;
     } on SocketException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _setPageState(() => _isLaunching = false);
       _showVersionMessage(_l10n.homeAuthConnectFailed(error.message));
+      return false;
     } on HttpException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _setPageState(() => _isLaunching = false);
       _showVersionMessage(_l10n.homeAuthRequestFailed(error.message));
+      return false;
     } on HandshakeException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _setPageState(() => _isLaunching = false);
       _showVersionMessage(_l10n.homeAuthTlsFailed(error.message));
+      return false;
     } on TimeoutException {
-      if (!mounted) return;
+      if (!mounted) return false;
       _setPageState(() => _isLaunching = false);
       _showVersionMessage(_l10n.homeAuthTimeout);
+      return false;
     } finally {
+      _launchSession = null;
       final pendingPlan = launchPlan;
       if (pendingPlan != null) {
         final cleanupError = await _launchRunner.cleanupNatives(
@@ -427,15 +485,11 @@ extension _LaunchActions on _LauncherHomePageState {
       buildFields: (endpoint, username, password) => [
         TextField(
           controller: endpoint,
-          decoration: InputDecoration(
-            labelText: _l10n.homeYggdrasilAddress,
-          ),
+          decoration: InputDecoration(labelText: _l10n.homeYggdrasilAddress),
         ),
         TextField(
           controller: username,
-          decoration: InputDecoration(
-            labelText: _l10n.homeEmailOrUsername,
-          ),
+          decoration: InputDecoration(labelText: _l10n.homeEmailOrUsername),
           keyboardType: TextInputType.emailAddress,
         ),
         TextField(
@@ -461,13 +515,76 @@ extension _LaunchActions on _LauncherHomePageState {
       return null;
     }
     LauncherLog.info('Auth', '第三方认证服务器：${request.server} · 代理：$agentPath');
-    return _minecraftAuthService.authenticateThirdParty(
-      request: request,
-      agentPath: agentPath,
-    ).then((identity) {
-      unawaited(_auth.rememberAccount(identity));
-      return identity;
-    });
+    return _minecraftAuthService
+        .authenticateThirdParty(request: request, agentPath: agentPath)
+        .then((identity) {
+          unawaited(_auth.rememberAccount(identity));
+          return identity;
+        });
+  }
+
+  /// Creates and stores a local profile from the account management page.
+  Future<UserAccount?> _createManagedOfflineAccount(String name) async {
+    try {
+      final identity = await _minecraftAuthService.authenticateOffline(name);
+      await _auth.updateMode(AuthMode.offline);
+      await _auth.updateOfflinePlayerName(identity.name);
+      final account = await _auth.rememberAccount(identity);
+      if (account == null) {
+        _showVersionMessage('添加本地档案失败。');
+      }
+      return account;
+    } on Object catch (error) {
+      _showVersionMessage('添加本地档案失败：$error');
+      return null;
+    }
+  }
+
+  /// Authenticates a Yggdrasil account and stores its token + agent at once.
+  Future<UserAccount?> _createManagedThirdPartyAccount(
+    String server,
+    String username,
+    String password,
+  ) async {
+    try {
+      final request = _minecraftAuthService.prepareThirdPartyAuth(
+        server: server,
+        username: username,
+        password: password,
+      );
+      await _auth.updateThirdPartyAuthServer(request.server);
+      final agentPath = await AuthlibInjector.ensureExtracted();
+      if (agentPath == null) {
+        _showVersionMessage(_l10n.homeAuthlibFailed);
+        return null;
+      }
+      final identity = await _minecraftAuthService.authenticateThirdParty(
+        request: request,
+        agentPath: agentPath,
+      );
+      await _auth.updateMode(AuthMode.thirdParty);
+      final account = await _auth.rememberAccount(identity);
+      if (account == null) {
+        _showVersionMessage('添加第三方账号失败。');
+      }
+      return account;
+    } on Object catch (error) {
+      _showVersionMessage('添加第三方账号失败：$error');
+      return null;
+    }
+  }
+
+  /// Runs the existing device-code flow and stores the Microsoft account.
+  Future<UserAccount?> _createManagedMicrosoftAccount() async {
+    final identity = await _authenticateMicrosoft();
+    if (identity == null) return null;
+    await _auth.updateMode(AuthMode.microsoft);
+    final id = UserAccount.buildId(AccountType.microsoft, identity.uuid);
+    final account = _auth.accounts.where((entry) => entry.id == id).firstOrNull;
+    if (account == null) {
+      _showVersionMessage('添加 Microsoft 账号失败。');
+    }
+    return account;
   }
 
   /// Microsoft sign-in through the `mcid_connect` package.
@@ -492,7 +609,7 @@ extension _LaunchActions on _LauncherHomePageState {
         },
       );
       _microsoftIdentity = identity;
-      unawaited(_auth.rememberAccount(identity));
+      await _auth.rememberAccount(identity);
       return identity;
     } on MicrosoftConnectException catch (error) {
       _showVersionMessage(error.message);
@@ -525,16 +642,14 @@ extension _LaunchActions on _LauncherHomePageState {
         ),
         actions: [
           TextButton(
-            onPressed: () => unawaited(
-              PlatformLauncher.openUrl(prompt.verificationUri),
-            ),
+            onPressed: () =>
+                unawaited(PlatformLauncher.openUrl(prompt.verificationUri)),
             child: Text(_l10n.actionOpenBrowser),
           ),
         ],
       ),
     );
   }
-
 
   /// Loads the per-client Java/memory overrides shown on the details page.
   Future<void> _loadSelectedVersionSettings(LauncherVersion version) async {
@@ -611,10 +726,7 @@ extension _LaunchActions on _LauncherHomePageState {
         LauncherLog.info('Launch', '使用客户端自带的 Java：${runtime.executable}');
         return runtime.executable;
       }
-      LauncherLog.warning(
-        'Launch',
-        '客户端配置的 Java 不可用，改为使用全局设置：$versionJava',
-      );
+      LauncherLog.warning('Launch', '客户端配置的 Java 不可用，改为使用全局设置：$versionJava');
     }
 
     final javaVersion = config['javaVersion'];
@@ -633,9 +745,7 @@ extension _LaunchActions on _LauncherHomePageState {
         source: '全局设置',
       );
       if (runtime == null) {
-        throw StateError(
-          _l10n.homeGlobalJavaMissing(globalSelection),
-        );
+        throw StateError(_l10n.homeGlobalJavaMissing(globalSelection));
       }
       LauncherLog.info('Launch', '使用全局设置的 Java：${runtime.executable}');
       return runtime.executable;
@@ -753,7 +863,7 @@ extension _PreferencesActions on _LauncherHomePageState {
         );
         final debugLogging = decoded['debugLoggingEnabled'];
         _debugLoggingEnabled = debugLogging is bool ? debugLogging : true;
-        _mcimEnabled = decoded[PreferencesStore.mcimEnabledKey] == true;
+        _mcimEnabled = decoded[PreferencesStore.mcimEnabledKey] != false;
       });
       CurseForgeService.endpoint = _mcimEnabled
           ? CurseForgeEndpoint.mcim

@@ -15,7 +15,8 @@ import '../core/path_utils.dart';
 import '../core/platform_launcher.dart';
 import '../core/preferences_store.dart';
 import '../l10n/app_localizations.dart';
-import '../widgets/download/active_download_banner.dart';
+import '../widgets/launcher/activity_banner.dart';
+import '../widgets/plugin/plugin_floating_layer.dart';
 import 'launcher/controllers/appearance_controller.dart';
 import 'launcher/controllers/auth_controller.dart';
 import 'launcher/controllers/download_activity_controller.dart';
@@ -36,10 +37,17 @@ import 'versions/version_management_page.dart';
 import 'launcher/launcher_shell.dart';
 import 'launcher/launcher_sidebar.dart';
 import 'launcher/launcher_top_bar.dart';
-import 'launcher/workbench_page.dart';
 import 'settings/settings_page.dart';
+import 'workbench/workbench_page.dart';
+import 'accounts/account_management_page.dart';
 
 import '../services/download/download_service.dart';
+import '../services/plugin/plugin_manager.dart';
+import '../services/plugin/plugin_overlay_manager.dart';
+import '../services/plugin/plugin_startup_runner.dart';
+import '../services/task/java_scan_task_service.dart';
+import '../services/task/launcher_task.dart';
+import '../services/task/task_activity_controller.dart';
 import '../services/installer/client_settings.dart';
 import '../services/installer/game_installer.dart';
 import '../services/installer/version_models.dart';
@@ -58,11 +66,9 @@ import '../widgets/client_tile.dart';
 import '../widgets/dialogs/client_config_sheet.dart';
 import '../widgets/dialogs/client_picker_sheet.dart';
 import '../widgets/dialogs/launch_failure_dialogs.dart';
-import '../widgets/dialogs/login_method_sheet.dart';
 import '../widgets/version_icon.dart';
 import '../widgets/wallpaper/wallpaper_background.dart';
 import '../widgets/wallpaper/wallpaper_crop_dialog.dart';
-import 'home/widgets/account_manager_sheet.dart';
 
 part 'home/home_views.dart';
 part 'home/home_actions.dart';
@@ -160,18 +166,16 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
       _appearance.lightWallpaperDisplayMode;
   WallpaperDisplayMode get _darkWallpaperDisplayMode =>
       _appearance.darkWallpaperDisplayMode;
-  String? get _activeDownloadTask => _downloads.activeTask;
   set _activeDownloadTask(String? value) => _downloads.updateTask(value);
   DownloadCancellationToken? get _activeDownloadToken =>
       _downloads.cancellationToken;
   set _activeDownloadToken(DownloadCancellationToken? value) =>
       _downloads.setCancellation(value);
-  bool get _canCancelActiveDownload => _downloads.canCancel;
   DownloadManager get _downloadManager => _downloads.manager;
 
   int _versionFilter = 0;
   String _versionSearchQuery = '';
-  bool _mcimEnabled = false;
+  bool _mcimEnabled = true;
   final TextEditingController _minecraftClientNameController =
       TextEditingController();
   LauncherVersion? _selectedVersion;
@@ -240,6 +244,7 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
   DownloadCancellationToken? _versionMaintenanceCancellation;
   List<ManagedMod> _managedMods = [];
   bool _isChoosingDownloadClient = false;
+  bool _showAccountManager = false;
 
   MinecraftAuthService get _minecraftAuthService =>
       MinecraftAuthService(minecraftPath: _minecraftPath);
@@ -247,6 +252,11 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
   /// Cached Microsoft identity so repeated launches reuse the same session.
   AuthIdentity? _microsoftIdentity;
   final MinecraftLaunchRunner _launchRunner = const MinecraftLaunchRunner();
+  MinecraftLaunchSession? _launchSession;
+  MinecraftLaunchSession? _runningSession;
+  bool _isMinecraftRunning = false;
+  bool _minecraftTerminatedByLauncher = false;
+  bool _launchCancelled = false;
   final MinecraftLaunchDiagnostics _launchDiagnostics =
       const MinecraftLaunchDiagnostics();
   bool _isLaunching = false;
@@ -274,12 +284,10 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
   LauncherPalette get _palette => LauncherPalette.fromDark(_usesDarkPalette);
   LauncherUiColors get _uiColors => _palette.uiColors;
   Color get _muted => _palette.muted;
-  Color get _buttonForeground => _palette.buttonForeground;
   Color get _panelColor => _palette.panelColor;
   Color get _panelBorderColor => _palette.panelBorderColor;
   Color get _panelAccentColor => _palette.panelAccentColor;
   Color get _selectedSurfaceColor => _palette.selectedSurfaceColor;
-  Color get _selectedForegroundColor => _palette.selectedForegroundColor;
   @override
   void initState() {
     super.initState();
@@ -315,12 +323,15 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
     )..addListener(_onAppearanceChanged);
     _appearance.startClock();
     _shell.addListener(_onShellChanged);
+    PluginManager.instance.addListener(_onPluginsChanged);
+    unawaited(_runPluginStartupActions());
+    PluginOverlayManager.instance.updateTab(_shell.selectedTab);
     launcherThemeMode.addListener(_onThemeChanged);
     unawaited(_catalog.loadVersions());
     unawaited(_loadLauncherPreferences());
     unawaited(_appearance.loadWallpaperPreferences());
     unawaited(_appearance.loadLanguagePreference());
-    unawaited(_java.loadCache());
+    unawaited(_initializeJava());
     unawaited(_detectMemoryLimit());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _appearance.applyAppearanceMode();
@@ -340,7 +351,17 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
       widget.downloadService ?? const MinecraftDownloadService();
 
   void _onShellChanged() {
+    PluginOverlayManager.instance.updateTab(_shell.selectedTab);
     if (mounted) setState(() {});
+  }
+
+  void _onPluginsChanged() {
+    PluginOverlayManager.instance.refresh();
+  }
+
+  Future<void> _runPluginStartupActions() async {
+    final plugins = await PluginManager.instance.scan();
+    await PluginStartupRunner.instance.run(plugins);
   }
 
   void _onThemeChanged() {
@@ -361,6 +382,19 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
       _javaPathController.text = _java.customJavaPath;
     }
     setState(() {});
+  }
+
+  Future<void> _initializeJava() async {
+    await _java.loadCache();
+    final scanned = await JavaScanTaskService.runIfNeeded(
+      hasCachedRuntimes: _java.runtimes.isNotEmpty,
+      discover: _java.discover,
+      skip: Platform.environment['FLUTTER_TEST'] == 'true',
+    );
+    if (!scanned || !mounted) return;
+    // Force a fresh read so the settings dropdowns see the discovered runtimes.
+    await _java.loadCache();
+    if (mounted) setState(() {});
   }
 
   void _onAuthChanged() {
@@ -411,6 +445,7 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
     _minecraftDownloads
       ..removeListener(_onMinecraftDownloadsChanged)
       ..dispose();
+    PluginManager.instance.removeListener(_onPluginsChanged);
     _shell
       ..removeListener(_onShellChanged)
       ..dispose();
@@ -524,22 +559,18 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
     }
   }
 
-  Widget _buildActiveDownloadBanner() {
-    final task = _activeDownloadTask;
-    if (task == null) return const SizedBox.shrink();
-    return ActiveDownloadBanner(
-      manager: _downloadManager,
-      task: task,
-      canCancel: _canCancelActiveDownload,
-      onTap: _openDownloadTasks,
-      onCancel: _cancelActiveDownload,
-      surfaceColor: _selectedSurfaceColor,
-      panelBorderColor: _panelBorderColor,
-      buttonForegroundColor: _buttonForeground,
-      selectedForegroundColor: _selectedForegroundColor,
-      mutedColor: _muted,
-      accentColor: _uiColors.accent,
-    );
+  /// Maps plugin `navigate_to` targets onto shell tabs.
+  void _handlePluginNavigate(String page) {
+    final tab = switch (page) {
+      'versions' => LauncherTab.versions,
+      'downloads' => LauncherTab.downloads,
+      'download_tasks' => LauncherTab.downloadTasks,
+      'settings' => LauncherTab.settings,
+      'workbench' => LauncherTab.workbench,
+      'plugins' => LauncherTab.workbench,
+      _ => LauncherTab.home,
+    };
+    _handleTabSelected(tab);
   }
 
   @override
@@ -558,6 +589,11 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
             scaffoldBackgroundColor: const Color(0xFF101510),
           )
         : Theme.of(context);
+    final candidateFabVisible =
+        _shell.selectedTab == LauncherTab.downloads &&
+        _resourceDetailProject == null &&
+        !_candidateManager.isEmpty;
+    final closeButtonBottom = candidateFabVisible ? 104.0 : 24.0;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Theme(
@@ -616,9 +652,9 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
               ),
               LauncherShell(
                 topBar: LauncherTopBar(
-                  activeDownloadBanner: _activeDownloadTask == null
-                      ? null
-                      : _buildActiveDownloadBanner(),
+                  activityBanner: ActivityBanner(
+                    onOpenDownloads: _openDownloadTasks,
+                  ),
                   isDark: usesDarkPalette,
                   isMaximized: _shell.isWindowMaximized,
                   onStartDrag: () => _runWindowCommand('startDrag'),
@@ -632,7 +668,9 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
                   isDark: usesDarkPalette,
                 ),
                 contentKey: ValueKey(
-                  '${_shell.selectedTab.name}-${_shell.selectedTab == LauncherTab.versions && _shell.showVersionDetails}-${_shell.selectedTab == LauncherTab.downloads && _shell.showMinecraftDownload}-'
+                  '${_shell.selectedTab.name}-'
+                  '${_shell.selectedTab == LauncherTab.versions && _shell.showVersionDetails}-'
+                  '${_shell.selectedTab == LauncherTab.downloads && _shell.showMinecraftDownload}-'
                   '${_shell.selectedTab == LauncherTab.downloads ? (_resourceDetailProject == null ? 'resource-list' : 'resource-detail-${_resourceDetailProject!.id}') : ''}',
                 ),
                 content: switch (_shell.selectedTab) {
@@ -646,8 +684,37 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
                     onCancelActiveDownload: _cancelActiveDownload,
                   ),
                   LauncherTab.settings => _buildSettingsPage(usesDarkPalette),
-                  LauncherTab.workbench => WorkbenchPage(palette: _palette),
+                  LauncherTab.workbench => WorkbenchPage(
+                    palette: _palette,
+                    onNavigate: _handlePluginNavigate,
+                    onLaunchGame: _launchSelectedVersion,
+                  ),
                 },
+              ),
+              if (_isMinecraftRunning)
+                Positioned(
+                  right: 24,
+                  bottom: closeButtonBottom,
+                  child: Tooltip(
+                    message: '关闭 Minecraft',
+                    child: FloatingActionButton(
+                      heroTag: 'close-minecraft',
+                      backgroundColor: contentTheme.colorScheme.error,
+                      foregroundColor: contentTheme.colorScheme.onError,
+                      onPressed: _terminateMinecraft,
+                      child: const Icon(Icons.power_settings_new_rounded),
+                    ),
+                  ),
+                ),
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: PluginOverlayManager.instance,
+                  builder: (context, _) => PluginFloatingLayer(
+                    items: PluginOverlayManager.instance.visible,
+                    onNavigate: _handlePluginNavigate,
+                    onLaunchGame: _launchSelectedVersion,
+                  ),
+                ),
               ),
             ],
           ),

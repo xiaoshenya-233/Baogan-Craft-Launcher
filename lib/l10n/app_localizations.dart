@@ -1735,6 +1735,210 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未知版本'**
   String get commonUnknownVersion;
+
+  /// No description provided for @pluginsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件中心'**
+  String get pluginsTitle;
+
+  /// No description provided for @pluginsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览已安装的插件并打开其 JSON 界面。'**
+  String get pluginsSubtitle;
+
+  /// No description provided for @pluginsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未安装插件。将插件放入 BGCL/plugins 后点击刷新。'**
+  String get pluginsEmpty;
+
+  /// No description provided for @pluginsRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新插件列表'**
+  String get pluginsRefresh;
+
+  /// No description provided for @pluginOpenFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开插件目录'**
+  String get pluginOpenFolder;
+
+  /// No description provided for @pluginFolderUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件目录尚未初始化，请先完成启动器设置。'**
+  String get pluginFolderUnavailable;
+
+  /// No description provided for @pluginsLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法加载插件：{error}'**
+  String pluginsLoadFailed(String error);
+
+  /// No description provided for @pluginsNoUi.
+  ///
+  /// In zh, this message translates to:
+  /// **'该插件没有可用的 UI 文档。'**
+  String get pluginsNoUi;
+
+  /// No description provided for @pluginsVersionAuthor.
+  ///
+  /// In zh, this message translates to:
+  /// **'{version} · {author}'**
+  String pluginsVersionAuthor(String version, String author);
+
+  /// No description provided for @pluginsPermissions.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限：{permissions}'**
+  String pluginsPermissions(String permissions);
+
+  /// No description provided for @pluginBack.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回插件列表'**
+  String get pluginBack;
+
+  /// No description provided for @pluginLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在加载插件…'**
+  String get pluginLoading;
+
+  /// No description provided for @pluginPermissionDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限不足：插件未获得 {permission} 权限，无法执行 {action}。'**
+  String pluginPermissionDenied(String permission, String action);
+
+  /// No description provided for @pluginActionFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件操作失败：{error}'**
+  String pluginActionFailed(String error);
+
+  /// No description provided for @pluginActionInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知或不支持的插件操作：{action}'**
+  String pluginActionInvalid(String action);
+
+  /// No description provided for @pluginFileSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存到插件目录：{path}'**
+  String pluginFileSaved(String path);
+
+  /// No description provided for @pluginFileRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'已读取：{path}'**
+  String pluginFileRead(String path);
+
+  /// No description provided for @pluginFileDownloaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载完成：{path}'**
+  String pluginFileDownloaded(String path);
+
+  /// No description provided for @pluginWebviewPermissionDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限不足：webview 节点需要 webview 权限。'**
+  String get pluginWebviewPermissionDenied;
+
+  /// No description provided for @pluginWebviewPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'Webview: {url}（后续版本接入）'**
+  String pluginWebviewPlaceholder(String url);
+
+  /// No description provided for @workbenchHubTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'功能中枢'**
+  String get workbenchHubTitle;
+
+  /// No description provided for @workbenchHubSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件、系统监控与实用工具的统一入口。'**
+  String get workbenchHubSubtitle;
+
+  /// No description provided for @workbenchPluginCenterDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览、运行并管理已安装的插件界面。'**
+  String get workbenchPluginCenterDescription;
+
+  /// No description provided for @workbenchSystemMonitor.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统监控'**
+  String get workbenchSystemMonitor;
+
+  /// No description provided for @workbenchSystemMonitorDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看 Windows 内存与 CPU 状态。'**
+  String get workbenchSystemMonitorDescription;
+
+  /// No description provided for @workbenchSystemMonitorPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'未来将在此显示 Windows 内存/CPU 状态。'**
+  String get workbenchSystemMonitorPlaceholder;
+
+  /// No description provided for @workbenchNbtViewer.
+  ///
+  /// In zh, this message translates to:
+  /// **'NBT 查看器'**
+  String get workbenchNbtViewer;
+
+  /// No description provided for @workbenchNbtViewerDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'快速浏览与校验存档 NBT 数据。'**
+  String get workbenchNbtViewerDescription;
+
+  /// No description provided for @workbenchNbtPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'未来将在此浏览与编辑 NBT 数据。'**
+  String get workbenchNbtPlaceholder;
+
+  /// No description provided for @workbenchSaveBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'存档备份中心'**
+  String get workbenchSaveBackup;
+
+  /// No description provided for @workbenchSaveBackupDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'一键备份与恢复本地世界存档'**
+  String get workbenchSaveBackupDescription;
+
+  /// No description provided for @workbenchSaveBackupPlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'未来将在此支持一键打包备份存档，防止心血丢失。'**
+  String get workbenchSaveBackupPlaceholder;
+
+  /// No description provided for @workbenchComingSoon.
+  ///
+  /// In zh, this message translates to:
+  /// **'开发中'**
+  String get workbenchComingSoon;
+
+  /// No description provided for @workbenchBack.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回功能中枢'**
+  String get workbenchBack;
 }
 
 class _AppLocalizationsDelegate

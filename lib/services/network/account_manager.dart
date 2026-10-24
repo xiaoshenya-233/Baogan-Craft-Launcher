@@ -34,10 +34,8 @@ class FlutterSecureTokenStore implements SecureTokenStore {
 /// `flutter_secure_storage` (DPAPI on Windows) under `account_token_<id>` and
 /// `account_refresh_<id>`.
 class AccountManager {
-  AccountManager({
-    required this.preferences,
-    SecureTokenStore? tokenStore,
-  }) : _tokens = tokenStore ?? const FlutterSecureTokenStore();
+  AccountManager({required this.preferences, SecureTokenStore? tokenStore})
+    : _tokens = tokenStore ?? const FlutterSecureTokenStore();
 
   static const String accountsKey = 'userAccounts';
   static const String currentAccountKey = 'currentAccountId';
@@ -84,9 +82,7 @@ class AccountManager {
       if (account == null) continue;
       final token = await _readSecret('$tokenKeyPrefix${account.id}') ?? '';
       final refresh = await _readSecret('$refreshKeyPrefix${account.id}') ?? '';
-      accounts.add(
-        account.copyWith(accessToken: token, refreshToken: refresh),
-      );
+      accounts.add(account.copyWith(accessToken: token, refreshToken: refresh));
     }
     return accounts;
   }
@@ -116,8 +112,25 @@ class AccountManager {
     ];
     await _saveMetadata(next);
     await setCurrentAccount(stored.id);
-    LauncherLog.info('Accounts', '已保存账号：${stored.name}（${stored.type.name}）');
+    LauncherLog.info('Accounts', '已保存账号（${stored.type.name}）');
     return stored;
+  }
+
+  /// Renames a stored account while preserving its encrypted tokens.
+  ///
+  /// Returns the updated account, or `null` when the id is unknown or the new
+  /// name is empty/too long.
+  Future<UserAccount?> updateName(String id, String newName) async {
+    final name = newName.trim();
+    if (name.isEmpty || name.length > 32) return null;
+    final accounts = await loadAccounts();
+    final index = accounts.indexWhere((account) => account.id == id);
+    if (index < 0) return null;
+    final updated = accounts[index].copyWith(name: name);
+    accounts[index] = updated;
+    await _saveMetadata(accounts);
+    LauncherLog.info('Accounts', '已重命名账号。');
+    return updated;
   }
 
   /// Removes the account and wipes both encrypted tokens.
@@ -131,7 +144,7 @@ class AccountManager {
     if (current == id) {
       await setCurrentAccount(next.isEmpty ? '' : next.first.id);
     }
-    LauncherLog.info('Accounts', '已移除账号：$id');
+    LauncherLog.info('Accounts', '已移除账号。');
   }
 
   Future<String> currentAccountId() async {

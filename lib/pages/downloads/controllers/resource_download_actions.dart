@@ -89,6 +89,10 @@ class ResourceDownloadActions {
   final Future<void> Function(BuildContext) onShowDownloadLockedDialog;
   final VoidCallback onCloseMinecraftDownload;
   DownloadCancellationToken? _activeDownloadToken;
+  final Map<String, Future<ModrinthProject>> _resourceHydrations =
+      <String, Future<ModrinthProject>>{};
+  final Set<String> _resourceCandidatePickers = <String>{};
+  bool _pickingDownloadTarget = false;
   final String resourceSearchQuery;
   final TextEditingController resourceSearchController;
   final LauncherPalette palette;
@@ -140,7 +144,7 @@ class ResourceDownloadActions {
   bool get _isInstallingMinecraft => minecraft.isInstalling;
   set _activeDownloadTask(String? value) => activity.updateTask(value);
   DownloadManager get _downloadManager => manager;
-  
+
   LauncherVersion? get _selectedVersion => selectedVersion;
   Color get _muted => palette.muted;
   Color get _panelColor => palette.panelColor;
@@ -149,6 +153,7 @@ class ResourceDownloadActions {
 
   void _setPageState(VoidCallback callback) => setPageState(callback);
   void _showVersionMessage(String message) => showMessage(message);
+
   /// Installed clients converted to the picker's [LauncherVersion] model.
   List<LauncherVersion> _clientsForPicker() => [
     for (final version in localClients())
@@ -170,49 +175,54 @@ class ResourceDownloadActions {
   ///
   /// `customRoot` is non-null when a directory was chosen by hand; a `null`
   /// result means the picker was dismissed and the download must be cancelled.
-  Future<({MinecraftVersion client, String? customRoot})?>
-  _pickDownloadTarget({
+  Future<({MinecraftVersion client, String? customRoot})?> _pickDownloadTarget({
     required String modTitle,
     required List<String> gameVersions,
     required List<String> loaders,
   }) async {
-    final selection = await TargetClientPicker.show(
-      context,
-      clients: _clientsForPicker(),
-      gameVersions: gameVersions,
-      loaders: loaders,
-      modTitle: modTitle,
-      preferredClientPath:
-          selectedLaunchVersionPath ?? _selectedVersion?.path,
-    );
-    if (selection == null) return null;
-    final customPath = selection.customPath;
-    if (customPath != null) {
+    if (_pickingDownloadTarget) return null;
+    _pickingDownloadTarget = true;
+    try {
+      final selection = await TargetClientPicker.show(
+        context,
+        clients: _clientsForPicker(),
+        gameVersions: gameVersions,
+        loaders: loaders,
+        modTitle: modTitle,
+        preferredClientPath:
+            selectedLaunchVersionPath ?? _selectedVersion?.path,
+      );
+      if (selection == null) return null;
+      final customPath = selection.customPath;
+      if (customPath != null) {
+        return (
+          client: MinecraftVersion(
+            id: lastPathSegment(customPath),
+            type: null,
+            directoryPath: customPath,
+            minecraftPath: customPath,
+            minecraftVersion: gameVersions.firstOrNull,
+            loaderType: loaders.firstOrNull,
+          ),
+          customRoot: customPath,
+        );
+      }
+      final client = selection.client!;
       return (
         client: MinecraftVersion(
-          id: lastPathSegment(customPath),
-          type: null,
-          directoryPath: customPath,
-          minecraftPath: customPath,
-          minecraftVersion: gameVersions.firstOrNull,
-          loaderType: loaders.firstOrNull,
+          id: client.name,
+          type: client.versionType,
+          directoryPath: client.gameDirectory ?? client.path,
+          minecraftPath: client.minecraftPath,
+          minecraftVersion: client.minecraftVersion,
+          loaderType: client.loaderType,
+          loaderVersion: client.loaderVersion,
         ),
-        customRoot: customPath,
+        customRoot: null,
       );
+    } finally {
+      _pickingDownloadTarget = false;
     }
-    final client = selection.client!;
-    return (
-      client: MinecraftVersion(
-        id: client.name,
-        type: client.versionType,
-        directoryPath: client.gameDirectory ?? client.path,
-        minecraftPath: client.minecraftPath,
-        minecraftVersion: client.minecraftVersion,
-        loaderType: client.loaderType,
-        loaderVersion: client.loaderVersion,
-      ),
-      customRoot: null,
-    );
   }
 
   Future<void> _loadManagedMods(LauncherVersion version) =>
@@ -265,21 +275,26 @@ class ResourceDownloadActions {
       _setPageState(() => _candidateManager.remove(project.id));
       return;
     }
+    if (!_resourceCandidatePickers.add(project.id)) return;
 
-    final choice = await _pickResourceVersionAndLoader(
-      project,
-      allowDefer: true,
-    );
-    if (choice == null) return;
-
-    _setPageState(() {
-      _candidateManager.add(
-        choice.defer
-            ? CandidateMod.deferred(choice.project)
-            : CandidateMod.fromChoice(choice),
+    try {
+      final choice = await _pickResourceVersionAndLoader(
+        project,
+        allowDefer: true,
       );
-    });
-    _showVersionMessage(choice.defer ? '已加入清单，下载时需选择版本。' : '已加入候选清单。');
+      if (choice == null) return;
+
+      _setPageState(() {
+        _candidateManager.add(
+          choice.defer
+              ? CandidateMod.deferred(choice.project)
+              : CandidateMod.fromChoice(choice),
+        );
+      });
+      _showVersionMessage(choice.defer ? '已加入清单，下载时需选择版本。' : '已加入候选清单。');
+    } finally {
+      _resourceCandidatePickers.remove(project.id);
+    }
   }
 
   /// Shared version/loader picker used by candidate actions and completion.
@@ -290,13 +305,13 @@ class ResourceDownloadActions {
     ModrinthProject project, {
     String? initialLoader,
     bool allowDefer = false,
-    bool forceHydrate = false,
   }) {
-    Future<ModrinthProject> loadProject() {
-      if (!forceHydrate && project.versions.isNotEmpty) {
-        return Future<ModrinthProject>.value(project);
+    Future<ModrinthProject> loadProject() async {
+      final versions = await _loadResourceVersionIndex(project);
+      if (versions.isEmpty) {
+        throw StateError('${project.source.label} 没有返回任何版本。');
       }
-      return _hydrateResourceProject(project, force: true);
+      return project.withVersions(versions);
     }
 
     return showModalBottomSheet<ResourceVersionChoice>(
@@ -315,15 +330,13 @@ class ResourceDownloadActions {
         loadersFor: resource.projectLoaderKeys,
         gameVersionsFor: (loaded) {
           final loaders = resource.projectLoaderKeys(loaded);
-          return resource.projectGameVersions(loaded, projectLoaders: loaders);
+          final versions = <String>{
+            ...loaded.supportedGameVersions,
+            ...resource.projectGameVersions(loaded, projectLoaders: loaders),
+          };
+          return versions.toList()
+            ..sort((left, right) => compareGameVersions(right, left));
         },
-        versionsFor: (loaded, gameVersion, loaderKey) =>
-            resource.projectVersionsForGame(
-              loaded,
-              gameVersion: gameVersion,
-              loaderKey: loaderKey,
-              projectLoaders: resource.projectLoaderKeys(loaded),
-            ),
       ),
     );
   }
@@ -333,21 +346,36 @@ class ResourceDownloadActions {
       _resourceDetailProject = source;
       _resourceDetailError = null;
       _isLoadingResourceDetail = true;
+      resource.detailVersionOffset = 0;
+      resource.detailHasMoreVersions = false;
+      resource.isLoadingMoreDetailVersions = false;
+      resource.detailPageError = null;
       resource.selectDefaultResourceVersion(source);
     });
     try {
-      final project = await _hydrateResourceProject(source, force: true);
-
+      final versions = await _loadResourceVersionIndex(source);
+      debugPrint(
+        '[VersionPicker] 当前版本: ${source.title}, '
+        '总版本数据源长度: ${versions.length}, 过滤后数量: ${versions.length}',
+      );
+      if (versions.isEmpty) {
+        throw StateError('${source.source.label} 没有返回任何版本。');
+      }
+      final loaded = source.withVersions(versions);
       _setPageState(() {
-        _resourceDetailProject = project;
+        _resourceDetailProject = loaded;
         _isLoadingResourceDetail = false;
-        resource.selectDefaultResourceVersion(project);
+        resource.detailVersionOffset = versions.length;
+        resource.detailHasMoreVersions = false;
+        resource.detailPageError = null;
+        resource.selectDefaultResourceVersion(loaded);
       });
     } catch (error) {
-
       _setPageState(() {
         _isLoadingResourceDetail = false;
         _resourceDetailError = '无法读取项目版本：$error';
+        resource.detailPageError = null;
+        resource.detailHasMoreVersions = false;
       });
     }
   }
@@ -356,6 +384,10 @@ class ResourceDownloadActions {
     _setPageState(() {
       _resourceDetailProject = null;
       _resourceDetailError = null;
+      resource.detailVersionOffset = 0;
+      resource.detailHasMoreVersions = false;
+      resource.isLoadingMoreDetailVersions = false;
+      resource.detailPageError = null;
       _resourceSelectedLoader = null;
       _resourceSelectedGameFamily = null;
       _resourceExpandedGameVersion = null;
@@ -365,12 +397,28 @@ class ResourceDownloadActions {
   Future<ModrinthProject> _hydrateResourceProject(
     ModrinthProject project, {
     bool force = false,
-  }) async {
-    if (!force && project.versions.isNotEmpty) return project;
+  }) {
+    if (!force && project.versions.isNotEmpty) {
+      return Future<ModrinthProject>.value(project);
+    }
+    final inFlight = _resourceHydrations[project.id];
+    if (inFlight != null) return inFlight;
+
+    late final Future<ModrinthProject> request;
+    request = _fetchResourceProjectVersions(project).whenComplete(() {
+      if (identical(_resourceHydrations[project.id], request)) {
+        _resourceHydrations.remove(project.id);
+      }
+    });
+    _resourceHydrations[project.id] = request;
+    return request;
+  }
+
+  Future<ModrinthProject> _fetchResourceProjectVersions(
+    ModrinthProject project,
+  ) async {
     try {
-      final versions = project.source == ResourceSource.modrinth
-          ? await ModrinthService.fetchVersions(project.id)
-          : await CurseForgeService.fetchVersions(project.id);
+      final versions = await _loadResourceVersionPage(project, offset: 0);
       if (versions.isNotEmpty) return project.withVersions(versions);
     } on Exception {
       // Network errors keep the versions that came with the search result.
@@ -387,6 +435,12 @@ class ResourceDownloadActions {
       return;
     }
     final targetVersion = requestedVersion ?? project.versions.firstOrNull;
+    // Start fetching every version immediately; the target picker must open
+    // without waiting for the network.
+    final hydration = project.versions.isEmpty
+        ? _hydrateResourceProject(project, force: true)
+        : Future<ModrinthProject>.value(project);
+    unawaited(hydration.catchError((Object _) => project));
     final target = await _pickDownloadTarget(
       modTitle: project.displayTitle,
       gameVersions: targetVersion?.gameVersions ?? const <String>[],
@@ -402,9 +456,7 @@ class ResourceDownloadActions {
     });
     try {
       try {
-        final effectiveProject = project.versions.isEmpty
-            ? await _hydrateResourceProject(project)
-            : project;
+        final effectiveProject = await hydration;
         await _downloadModrinthProject(
           effectiveProject,
           selected,
@@ -462,71 +514,67 @@ class ResourceDownloadActions {
     });
 
     try {
-      // Complete every deferred candidate before starting the download queue.
-      for (final candidate in _candidateManager.items) {
-        if (cancellation.isCancelled) break;
-        if (!candidate.needsVersion) continue;
-
-        {
-          _setPageState(
-            () => _activeDownloadTask = '为「${candidate.englishName}」选择版本…',
-          );
-        }
-        final choice = await _pickResourceVersionAndLoader(
-          candidate.project,
-          initialLoader: candidate.loader,
-          allowDefer: false,
-          forceHydrate: true,
-        );
-
-        if (cancellation.isCancelled) break;
-
-        if (choice == null || choice.defer || choice.version == null) {
-          final remove = await _confirmRemoveCandidate(candidate.englishName);
-
-          if (remove) {
-            _setPageState(() {
-              _candidateManager.remove(candidate.projectId);
-              _candidatesToRemove.remove(candidate.projectId);
-            });
-          }
-          continue;
-        }
-
-        _setPageState(() {
-          _candidateManager.add(CandidateMod.fromChoice(choice));
-        });
-      }
-
-      if (cancellation.isCancelled) {
-        _showVersionMessage('下载已取消，临时文件已清理。');
-        return;
-      }
-
       final candidates = _candidateManager.items;
       if (candidates.isEmpty) {
         _showVersionMessage('候选列表为空，请重新添加资源。');
         return;
       }
-
       final failed = <String>[];
-      final unresolved = <String>[];
+      final unmatched = <String>[];
+      var completed = 0;
+
       for (final candidate in candidates) {
         if (cancellation.isCancelled) break;
-        if (candidate.needsVersion) {
-          unresolved.add(candidate.englishName);
+        _setPageState(() {
+          _activeDownloadTask = '正在获取「${candidate.englishName}」的完整版本列表…';
+        });
+
+        ModrinthVersion? matched;
+        try {
+          matched = await _findMatchingVersion(candidate.project, selected);
+        } on TimeoutException {
+          failed.add(candidate.englishName);
+          _showVersionMessage('获取「${candidate.englishName}」的版本分页超时，已跳过。');
+          continue;
+        } on Exception catch (error) {
+          failed.add(candidate.englishName);
+          _showVersionMessage('获取「${candidate.englishName}」的匹配版本失败：$error');
+          continue;
+        }
+        if (cancellation.isCancelled) break;
+
+        if (matched == null) {
+          unmatched.add(candidate.englishName);
           continue;
         }
 
+        var resolvedLoader = candidate.loader;
+        if (resolvedLoader == null && selected.loaderType != null) {
+          resolvedLoader = resourceLoaderKey(selected.loaderType!);
+        }
+        resolvedLoader ??= matched.loaders
+            .map(resourceLoaderKey)
+            .where((key) => key.isNotEmpty)
+            .firstOrNull;
+        final resolvedProject = candidate.project.withVersions(
+          <ModrinthVersion>[matched],
+        );
+        final resolvedCandidate = CandidateMod(
+          englishName: candidate.englishName,
+          projectId: candidate.projectId,
+          project: resolvedProject,
+          version: matched,
+          versionId: matched.versionId,
+          loader: resolvedLoader,
+        );
+        _setPageState(() => _candidateManager.add(resolvedCandidate));
+
         var downloaded = false;
-        final project = candidate.project.versions.isEmpty
-            ? await _hydrateResourceProject(candidate.project)
-            : candidate.project;
         try {
           downloaded = await _downloadModrinthProject(
-            project,
+            resolvedProject,
             selected,
-            requestedVersion: candidate.version,
+            requestedVersion: matched,
             cancellation: cancellation,
             customRootPath: target.customRoot,
             renameOnConflict: true,
@@ -534,40 +582,46 @@ class ResourceDownloadActions {
         } on DownloadCancelledException {
           break;
         } on FileSystemException catch (error) {
-          _showVersionMessage('无法保存「${project.title}」：${error.message}');
+          _showVersionMessage(
+            '无法保存「${resolvedProject.title}」：${error.message}',
+          );
         } on HandshakeException catch (error) {
           _showVersionMessage(
-            '下载「${project.title}」时 TLS 连接失败：${error.message}',
+            '下载「${resolvedProject.title}」时 TLS 连接失败：${error.message}',
           );
         } on IOException catch (error) {
-          _showVersionMessage('下载「${project.title}」失败：$error');
+          _showVersionMessage('下载「${resolvedProject.title}」失败：$error');
         } on TimeoutException {
-          _showVersionMessage('下载「${project.title}」超时，请稍后重试。');
+          _showVersionMessage('下载「${resolvedProject.title}」超时，请稍后重试。');
         }
 
         if (downloaded) {
+          completed++;
           _setPageState(() {
             _candidateManager.remove(candidate.projectId);
             _candidatesToRemove.remove(candidate.projectId);
           });
         } else if (!cancellation.isCancelled) {
-          failed.add(project.title);
+          failed.add(resolvedProject.title);
         }
       }
 
-      {
-        _setPageState(() {});
-        final skipped = unresolved.isEmpty
-            ? ''
-            : '；${unresolved.length} 个未选择版本，仍保留在清单中';
-        _showVersionMessage(
-          cancellation.isCancelled
-              ? '下载已取消，临时文件已清理。'
-              : failed.isEmpty
-              ? '已完成 ${candidates.length - unresolved.length} 个候选资源的下载$skipped。'
-              : '有 ${failed.length} 个资源未能下载：${failed.join('、')}。失败项仍保留在候选列表中$skipped。',
+      _setPageState(() {});
+      if (cancellation.isCancelled) {
+        _showVersionMessage('下载已取消，临时文件已清理。');
+        return;
+      }
+      final messages = <String>['已完成 $completed 个候选资源的下载'];
+      if (failed.isNotEmpty) {
+        messages.add('${failed.length} 个获取或下载失败：${failed.join('、')}');
+      }
+      if (unmatched.isNotEmpty) {
+        messages.add(
+          '${unmatched.length} 个没有匹配「${selected.id}」的版本：'
+          '${unmatched.join('、')}',
         );
       }
+      _showVersionMessage('${messages.join('；')}。');
     } finally {
       {
         _setPageState(() {
@@ -581,26 +635,80 @@ class ResourceDownloadActions {
     }
   }
 
-  Future<bool> _confirmRemoveCandidate(String englishName) async {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('移出候选清单'),
-        content: Text('「$englishName」尚未选择版本，是否将其移出清单？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('保留'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('移出清单'),
-          ),
-        ],
-      ),
+  Future<List<ModrinthVersion>> _loadResourceVersionIndex(
+    ModrinthProject project,
+  ) {
+    if (project.source == ResourceSource.modrinth) {
+      return ModrinthService.fetchVersionIndex(project.id);
+    }
+    return CurseForgeService.fetchVersionIndex(project.id);
+  }
+
+  Future<List<ModrinthVersion>> _loadResourceVersionPage(
+    ModrinthProject project, {
+    required int offset,
+    int limit = resourceVersionPageSize,
+    List<String>? gameVersions,
+    List<String>? loaders,
+  }) {
+    if (project.source == ResourceSource.modrinth) {
+      return ModrinthService.fetchVersionPage(
+        project.id,
+        offset: offset,
+        limit: limit,
+        gameVersions: gameVersions,
+        loaders: loaders,
+      );
+    }
+    return CurseForgeService.fetchVersionPage(
+      project.id,
+      offset: offset,
+      limit: limit,
     );
-    return result ?? false;
+  }
+
+  Future<ModrinthVersion?> _findMatchingVersion(
+    ModrinthProject project,
+    MinecraftVersion client,
+  ) async {
+    final minecraftVersion = client.minecraftVersion?.trim();
+    final loader = client.loaderType?.trim();
+    if (project.source == ResourceSource.modrinth) {
+      final gameFilters = <String>{};
+      if (minecraftVersion != null && minecraftVersion.isNotEmpty) {
+        gameFilters.add(minecraftVersion);
+        final family = resourceVersionFamily(minecraftVersion);
+        if (family.isNotEmpty) gameFilters.add(family);
+      }
+      final versions = await ModrinthService.fetchVersionPage(
+        project.id,
+        gameVersions: gameFilters.toList(growable: false),
+        loaders: loader == null || loader.isEmpty
+            ? null
+            : <String>[loader.toLowerCase()],
+      );
+      return resource.matchVersionForClient(
+        project.withVersions(versions),
+        client,
+      );
+    }
+
+    var offset = 0;
+    for (var page = 0; page < 20; page++) {
+      final versions = await CurseForgeService.fetchVersionPage(
+        project.id,
+        offset: offset,
+      );
+      if (versions.isEmpty) return null;
+      final matched = resource.matchVersionForClient(
+        project.withVersions(versions),
+        client,
+      );
+      if (matched != null) return matched;
+      if (versions.length < resourceVersionPageSize) return null;
+      offset += versions.length;
+    }
+    return null;
   }
 
   Future<bool> _downloadModrinthProject(
@@ -639,7 +747,9 @@ class ResourceDownloadActions {
     // incompatible version is allowed on purpose (e.g. Sinytra Connector).
     // Prefer the requested file, then the best compatible one, then any file.
     final version =
-        requestedVersion ?? compatible.firstOrNull ?? project.versions.firstOrNull;
+        requestedVersion ??
+        compatible.firstOrNull ??
+        project.versions.firstOrNull;
     if (version == null) {
       _showVersionMessage(
         '${project.source.label} 没有为「${project.title}」提供可下载文件。',
@@ -674,7 +784,10 @@ class ResourceDownloadActions {
         targetDirectoryPath = minecraftVersionSubfolder(basePath, 'mods');
       case DownloadCategory.shaders:
         folder = 'shaderpacks';
-        targetDirectoryPath = minecraftVersionSubfolder(basePath, 'shaderpacks');
+        targetDirectoryPath = minecraftVersionSubfolder(
+          basePath,
+          'shaderpacks',
+        );
       case DownloadCategory.resourcePacks:
         folder = 'resourcepacks';
         targetDirectoryPath = minecraftVersionSubfolder(

@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Icons;
 import 'package:pool/pool.dart';
 
 import '../../core/format_utils.dart';
 import '../../core/launcher_log.dart';
 import '../installer/game_installer.dart';
 import '../network/api_service.dart';
+import '../task/launcher_task.dart';
+import '../task/task_activity_controller.dart';
 
 enum DownloadJobState { queued, downloading, completed, failed, cancelled }
 
@@ -82,6 +85,9 @@ class DownloadJob {
   DateTime _lastProgressNotify = DateTime.fromMillisecondsSinceEpoch(0);
   void Function()? onChanged;
 
+  /// Per-job revision so one row can rebuild without touching the whole page.
+  final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
   double? get progress {
     final total = totalBytes;
     if (total == null || total <= 0) return null;
@@ -99,12 +105,14 @@ class DownloadJob {
       return;
     }
     _lastProgressNotify = now;
+    revision.value++;
     onChanged?.call();
   }
 }
 
 class DownloadManager extends ChangeNotifier {
   static const int maxConcurrent = 8;
+  static const String taskId = 'downloads';
 
   final List<DownloadJob> _queue = [];
   final Map<String, DownloadJob> _active = {};
@@ -117,19 +125,93 @@ class DownloadManager extends ChangeNotifier {
   final Map<String, int> _groupSpeeds = {};
   Timer? _speedTimer;
   DateTime? _speedSampledAt;
+  Timer? _notifyTimer;
+  bool _notifyPending = false;
   int _nextId = 0;
   bool _disposed = false;
+
+  /// Minimum interval between progress notifications (500 ms).
+  static const Duration notifyInterval = Duration(milliseconds: 500);
 
   @override
   void dispose() {
     _disposed = true;
+    TaskActivityController.instance.removeTask(taskId);
     _speedTimer?.cancel();
     _speedTimer = null;
+    _notifyTimer?.cancel();
+    _notifyTimer = null;
     super.dispose();
   }
 
-  void _notify() {
-    if (!_disposed) notifyListeners();
+  /// Mirrors aggregate download progress into the global task banner.
+  void _syncTaskCenter() {
+    final controller = TaskActivityController.instance;
+    if (_active.isEmpty && _queue.isEmpty) {
+      controller.removeTask(taskId);
+      return;
+    }
+    var total = 0;
+    var received = 0;
+    for (final group in _groups.values) {
+      total += group.totalBytes;
+      received += group.receivedBytes;
+    }
+    final progress = total > 0 ? (received / total).clamp(0.0, 1.0) : null;
+    final currentJob = _active.isNotEmpty
+        ? _active.values.first
+        : (_queue.isNotEmpty ? _queue.first : null);
+    final group = currentJob == null ? null : _groups[currentJob.groupLabel];
+    final title = currentJob == null ? '正在下载资源' : '正在下载 ${currentJob.label}';
+    final detail = <String>[
+      if (group != null)
+        '${group.label}: ${group.completedJobs}/${group.totalJobs}',
+      '${_active.length} 个下载中',
+      if (_queue.isNotEmpty) '${_queue.length} 个排队',
+    ].join(' · ');
+    if (controller.taskById(taskId) == null) {
+      controller.addTask(
+        LauncherTask(
+          id: taskId,
+          title: title,
+          icon: Icons.download_rounded,
+          progress: progress,
+          subText: detail,
+        ),
+      );
+    } else {
+      controller.updateTask(
+        taskId,
+        title: title,
+        progress: progress,
+        indeterminate: progress == null,
+        subText: detail,
+      );
+    }
+  }
+
+  /// Throttled change notification.
+  ///
+  /// Structural changes pass [immediate] so the UI reacts instantly; progress
+  /// updates are coalesced into at most one notification per [notifyInterval].
+  void _notify({bool immediate = false}) {
+    if (_disposed) return;
+    _syncTaskCenter();
+    if (immediate) {
+      _notifyTimer?.cancel();
+      _notifyTimer = null;
+      _notifyPending = false;
+      notifyListeners();
+      return;
+    }
+    _notifyPending = true;
+    if (_notifyTimer != null) return;
+    _notifyTimer = Timer(notifyInterval, () {
+      _notifyTimer = null;
+      if (_disposed || !_notifyPending) return;
+      _notifyPending = false;
+      notifyListeners();
+    });
   }
 
   int get activeCount => _active.length;
@@ -146,11 +228,20 @@ class DownloadManager extends ChangeNotifier {
     return List<DownloadGroupStats>.unmodifiable(result);
   }
 
-  List<DownloadJob> jobsForGroup(String label) {
-    return List<DownloadJob>.unmodifiable([
-      ..._active.values.where((job) => job.groupLabel == label),
-      ..._queue.where((job) => job.groupLabel == label),
-    ]);
+  /// Jobs for one group; pass [limit] to avoid materializing thousands of rows.
+  List<DownloadJob> jobsForGroup(String label, {int limit = 0}) {
+    final result = <DownloadJob>[];
+    for (final job in _active.values) {
+      if (job.groupLabel != label) continue;
+      result.add(job);
+      if (limit > 0 && result.length >= limit) return result;
+    }
+    for (final job in _queue) {
+      if (job.groupLabel != label) continue;
+      result.add(job);
+      if (limit > 0 && result.length >= limit) return result;
+    }
+    return result;
   }
 
   int groupSpeed(String label) => _groupSpeeds[label] ?? 0;
@@ -260,7 +351,7 @@ class DownloadManager extends ChangeNotifier {
       _lastGroupBytes[group.label] = group.receivedBytes;
     }
     _speedSampledAt = now;
-    _notify();
+    _notify(immediate: true);
     if (_active.isEmpty && _queue.isEmpty) {
       _speedTimer?.cancel();
       _speedTimer = null;
@@ -274,6 +365,7 @@ class DownloadManager extends ChangeNotifier {
       final job = _queue.removeAt(0);
       if (job.cancellation?.isCancelled ?? false) {
         job.state = DownloadJobState.cancelled;
+        job.revision.value++;
         _finishGroupJob(job, DownloadJobState.cancelled);
         _runners.remove(job.id);
         _completers
@@ -283,10 +375,11 @@ class DownloadManager extends ChangeNotifier {
       }
       _active[job.id] = job;
       job.state = DownloadJobState.downloading;
+      job.revision.value++;
       started = true;
       unawaited(_run(job));
     }
-    if (started) _notify();
+    if (started) _notify(immediate: true);
   }
 
   Future<void> _run(DownloadJob job) async {
@@ -322,7 +415,8 @@ class DownloadManager extends ChangeNotifier {
     } finally {
       _active.remove(job.id);
       job.onChanged = null;
-      _notify();
+      job.revision.value++;
+      _notify(immediate: true);
       _pump();
     }
   }
@@ -393,7 +487,7 @@ class CurseForgeDownloader {
                sendTimeout: const Duration(seconds: 20),
                headers: const {
                  'Accept': 'application/json',
-                 'User-Agent': 'BlockLauncher/26.1alpha1.1 (modpack resolver)',
+                 'User-Agent': 'BlockLauncher/26.1alpha2 (modpack resolver)',
                },
              ),
            ),

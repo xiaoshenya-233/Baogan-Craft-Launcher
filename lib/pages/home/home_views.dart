@@ -2,6 +2,38 @@ part of '../launcher_home_page.dart';
 
 extension _HomeViewActions on _LauncherHomePageState {
   Widget _buildHomeContent() {
+    final Widget content = _showAccountManager
+        ? AccountManagementPage(
+            key: const ValueKey('account-management-page'),
+            auth: _auth,
+            onBack: () => _setPageState(() => _showAccountManager = false),
+            onCreateOffline: _createManagedOfflineAccount,
+            onCreateThirdParty: _createManagedThirdPartyAccount,
+            onCreateMicrosoft: _createManagedMicrosoftAccount,
+          )
+        : KeyedSubtree(
+            key: const ValueKey('home-dashboard'),
+            child: _buildHomeDashboard(),
+          );
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        final slideAnimation = Tween<Offset>(
+          begin: const Offset(0.06, 0),
+          end: Offset.zero,
+        ).animate(animation);
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(position: slideAnimation, child: child),
+        );
+      },
+      child: content,
+    );
+  }
+
+  Widget _buildHomeDashboard() {
     final selectedVersion = _localVersions
         .where((version) => version.directoryPath == _selectedLaunchVersionId)
         .firstOrNull;
@@ -142,93 +174,87 @@ extension _HomeViewActions on _LauncherHomePageState {
           AuthMode.thirdParty => Icons.dns_outlined,
         };
         return Material(
-      color: _panelColor,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: _showAccountEntry,
-        child: Container(
-          width: compact ? double.infinity : 238,
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-          decoration: BoxDecoration(
+          color: _panelColor,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _panelBorderColor),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: _panelAccentColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  icon,
-                  size: 19,
-                  color: _LauncherHomePageState._green,
-                ),
+            onTap: _showAccountEntry,
+            child: Container(
+              width: compact ? double.infinity : 238,
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _panelBorderColor),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      account == null ? _l10n.homeLoginMethod : _l10n.homeCurrentAccount,
-                      style: TextStyle(
-                        fontSize: 10,
-                        letterSpacing: 0.8,
-                        color: _muted,
-                        fontWeight: FontWeight.w600,
-                      ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: _panelAccentColor,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      account?.name ?? _homeAuthModeLabel(mode),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Icon(
+                      icon,
+                      size: 19,
+                      color: _LauncherHomePageState._green,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      account != null
-                          ? _l10n.homeManageAccount(
-                              _homeAccountTypeLabel(account.type),
-                            )
-                          : _homeAccountDetail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 10, color: _muted),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          account == null
+                              ? _l10n.homeLoginMethod
+                              : _l10n.homeCurrentAccount,
+                          style: TextStyle(
+                            fontSize: 10,
+                            letterSpacing: 0.8,
+                            color: _muted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          account?.name ?? _homeAuthModeLabel(mode),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          account != null
+                              ? _l10n.homeManageAccount(
+                                  _homeAccountTypeLabel(account.type),
+                                )
+                              : _homeAccountDetail,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 10, color: _muted),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.swap_horiz_rounded, size: 17, color: _muted),
+                ],
               ),
-              const SizedBox(width: 6),
-              Icon(Icons.swap_horiz_rounded, size: 17, color: _muted),
-            ],
-          ),
-        ),
+            ),
           ),
         );
       },
     );
   }
 
-  /// Opens the account list, or the login chooser when nothing is stored yet.
+  /// Opens the dedicated account page inside the launcher shell.
   Future<void> _showAccountEntry() async {
-    if (_auth.accounts.isEmpty) {
-      await _showLoginMethodSheet();
-      return;
-    }
-    await AccountManagerSheet.show(
-      context,
-      auth: _auth,
-      onAddAccount: _showLoginMethodSheet,
-    );
+    _setPageState(() => _showAccountManager = true);
   }
 
   String _homeAuthModeLabel(AuthMode mode) => switch (mode) {
@@ -249,36 +275,9 @@ extension _HomeViewActions on _LauncherHomePageState {
     AuthMode.thirdParty => _thirdPartyAuthServer,
   };
 
-  Future<void> _showLoginMethodSheet() async {
-    final selected = await LoginMethodSheet.show(
-      context,
-      currentMode: _launchAuthMode,
-      colors: _uiColors,
-    );
-    if (!mounted || selected == null || selected == _launchAuthMode) return;
-    await _auth.updateMode(selected);
-    if (!mounted) return;
-    if (selected != AuthMode.microsoft) {
-      _microsoftIdentity = null;
-      _showVersionMessage(
-        _l10n.homeAuthSwitched(
-          switch (selected) {
-            AuthMode.offline => _l10n.authModeLocalProfile,
-            AuthMode.microsoft => _l10n.authModeMicrosoft,
-            AuthMode.thirdParty => _l10n.authModeThirdParty,
-          },
-        ),
-      );
-      return;
-    }
-    // Switching to "Microsoft 正版登录" starts the device-code sign-in at once.
-    final identity = await _authenticateMicrosoft();
-    if (!mounted || identity == null) return;
-    _showVersionMessage(_l10n.homeMicrosoftSignedIn(identity.name));
-  }
-
   Widget _buildClientPickerBar(MinecraftVersion? selectedVersion) {
-    final name = selectedVersion?.id ??
+    final name =
+        selectedVersion?.id ??
         (_isLoadingVersions
             ? _l10n.homeScanningClients
             : _l10n.homeSelectClient);
@@ -335,7 +334,10 @@ extension _HomeViewActions on _LauncherHomePageState {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(_l10n.homeSwitch, style: TextStyle(fontSize: 10, color: _muted)),
+                      Text(
+                        _l10n.homeSwitch,
+                        style: TextStyle(fontSize: 10, color: _muted),
+                      ),
                       const SizedBox(width: 4),
                       Icon(Icons.unfold_more_rounded, size: 18, color: _muted),
                     ],

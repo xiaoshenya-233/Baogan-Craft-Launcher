@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/installer/game_installer.dart';
 import '../../services/network/api_service.dart';
+import '../../widgets/plugin/plugin_uac_dialog.dart';
 import '../bootstrap/launcher_bootstrap.dart';
 import '../launcher_home_page.dart';
 import 'controllers/appearance_controller.dart';
@@ -26,6 +27,7 @@ class BlockLauncherApp extends StatelessWidget {
       builder: (context, themeMode, _) => ValueListenableBuilder<Locale>(
         valueListenable: launcherLocale,
         builder: (context, locale, _) => MaterialApp(
+          navigatorKey: pluginUacNavigatorKey,
           onGenerateTitle: (context) =>
               AppLocalizations.of(context)?.appTitle ?? 'Baogan Craft Launcher',
           debugShowCheckedModeBanner: false,

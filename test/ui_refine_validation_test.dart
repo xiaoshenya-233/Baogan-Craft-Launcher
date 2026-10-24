@@ -217,7 +217,10 @@ void main() {
         },
       },
     ]);
-    expect(chineseTitleFromApiResponse(itemOnly, 'Enriched Uranium Ingot'), isNull);
+    expect(
+      chineseTitleFromApiResponse(itemOnly, 'Enriched Uranium Ingot'),
+      isNull,
+    );
   });
 
   test('mcmod semaphore caps concurrent requests at two', () async {
@@ -522,6 +525,41 @@ void main() {
       isFalse,
     );
   });
+  test('version inference never trusts the folder name', () async {
+    final temporary = await Directory.systemTemp.createTemp('launcher-folder-');
+    addTearDown(() => temporary.delete(recursive: true));
+    final root = Directory(
+      '${temporary.path}${Platform.pathSeparator}.minecraft',
+    );
+    final versionDirectory = Directory(
+      '${root.path}${Platform.pathSeparator}versions'
+      '${Platform.pathSeparator}1.20.1',
+    );
+    await versionDirectory.create(recursive: true);
+    await File(
+      '${versionDirectory.path}${Platform.pathSeparator}1.20.1.json',
+    ).writeAsString(jsonEncode({'id': 'modpack-custom-id', 'type': 'release'}));
+
+    final versions = await getLocalVersions(root.path);
+    expect(versions, hasLength(1));
+    expect(versions.single.id, 'modpack-custom-id');
+    expect(versions.single.minecraftVersion, isNull);
+    expect(versions.single.loaderVersion, isNull);
+  });
+
+  test('client title stays the folder name while Minecraft stays a tag', () {
+    const version = LauncherVersion(
+      name: '1.21.1-NeoForge_21.1.234',
+      path: r'C:\games\.minecraft\versions\1.21.1-NeoForge_21.1.234',
+      kind: VersionKind.modded,
+      minecraftPath: r'C:\games\.minecraft',
+      minecraftVersion: '1.21.1',
+    );
+    expect(version.name, '1.21.1-NeoForge_21.1.234');
+    expect(version.minecraftVersion, '1.21.1');
+    expect(lastPathSegment(version.path), version.name);
+  });
+
   test('version scanning keeps the source root and jar lookup tolerates folder/id mismatch', () async {
     final temporary = await Directory.systemTemp.createTemp('launcher-source-');
     addTearDown(() => temporary.delete(recursive: true));
@@ -644,6 +682,23 @@ void main() {
       'type': 'release',
       'inheritsFrom': '1.20.1-forge-47.2.0',
     });
+    // A modpack patch id (1.5.4) must not win over the Forge 47.2.0 artifact
+    // line, which identifies Minecraft 1.20.1.
+    await writeVersion('1.5.4', {
+      'id': '1.5.4',
+      'type': 'release',
+      'libraries': [
+        {'name': 'net.minecraftforge:forge:47.2.0'},
+      ],
+    });
+    await writeVersion('InheritsOverride', {
+      'id': 'InheritsOverride',
+      'type': 'release',
+      'inheritsFrom': '1.20.1',
+      'libraries': [
+        {'name': 'net.minecraftforge:forge:47.2.0'},
+      ],
+    });
     await writeVersion('fabric-loader-0.16.9-1.21.1', {
       'id': 'fabric-loader-0.16.9-1.21.1',
       'type': 'release',
@@ -679,6 +734,14 @@ void main() {
     expect(forge.minecraftVersion, '1.20.1');
     expect(forge.loaderType, 'Forge');
     expect(forge.loaderVersion, '47.2.0');
+
+    final patchPack = find('1.5.4');
+    expect(patchPack.minecraftVersion, '1.20.1');
+    expect(patchPack.loaderType, 'Forge');
+    expect(patchPack.loaderVersion, '47.2.0');
+
+    final inheritsOverride = find('InheritsOverride');
+    expect(inheritsOverride.minecraftVersion, '1.20.1');
 
     final fabric = find('CustomFabric');
     expect(fabric.minecraftVersion, '1.21.1');
@@ -750,12 +813,21 @@ void main() {
     await tester.tap(find.text('登录方式'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('当前：本地档案'), findsOneWidget);
+    expect(find.text('账号管理'), findsOneWidget);
+    expect(find.text('账号列表'), findsOneWidget);
+    expect(find.text('添加账户'), findsOneWidget);
+
+    await tester.tap(find.text('添加账户'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('本地档案'), findsOneWidget);
     expect(find.text('Microsoft 登录'), findsOneWidget);
     expect(find.text('第三方验证'), findsOneWidget);
-    expect(find.text('一键登录：点击后显示设备码，无需任何额外配置。'), findsOneWidget);
+    expect(find.textContaining('设备码'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tapAt(const Offset(10, 10));
+    await tester.tap(find.text('取消'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text('返回'));
     await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.text('选择客户端'));

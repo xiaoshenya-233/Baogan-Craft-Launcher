@@ -448,7 +448,7 @@ extension _ModpackActions on _LauncherHomePageState {
       if (uri == null || uri.scheme != 'https') continue;
       final client = HttpClient()
         ..connectionTimeout = const Duration(seconds: 20)
-        ..userAgent = 'BlockLauncher/26.1alpha1.1 (modpack installer)';
+        ..userAgent = 'BlockLauncher/26.1alpha2 (modpack installer)';
       void abort() => client.close(force: true);
       cancellation.addListener(abort);
       final temporary = File(

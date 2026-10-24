@@ -13,6 +13,7 @@ import 'pages/launcher/controllers/appearance_controller.dart';
 import 'pages/launcher/launcher_app.dart';
 import 'pages/launcher_home_page.dart';
 import 'services/launcher/authlib_injector.dart';
+import 'services/plugin/plugin_manager.dart';
 
 export 'pages/launcher/launcher_app.dart';
 export 'pages/launcher_home_page.dart';
@@ -61,9 +62,12 @@ Future<void> _startLauncher(List<String> args) async {
 
   await PathManager.instance.load();
   if (PathManager.instance.isConfigured) {
+    await AppearanceController.prepareStartupWallpaper();
     // Release the bundled authlib-injector in the background; failures are
     // reported later when a third-party account is actually launched.
     unawaited(AuthlibInjector.ensureExtracted());
+    // Discover installed plugins once the game root is known.
+    unawaited(PluginManager.instance.scan());
   }
   // 在用户选定根目录之前，不初始化日志、数据库或任何会写本地缓存的模块。
   FlutterError.onError = (details) {
@@ -138,9 +142,7 @@ class _NetworkCheckAppState extends State<NetworkCheckApp> {
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Builder(
-          builder: (context) => _buildNetworkError(context),
-        ),
+        home: Builder(builder: (context) => _buildNetworkError(context)),
       ),
     );
   }
@@ -172,10 +174,7 @@ class _NetworkCheckAppState extends State<NetworkCheckApp> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    l10n.networkCheckMessage,
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(l10n.networkCheckMessage, textAlign: TextAlign.center),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     Text(

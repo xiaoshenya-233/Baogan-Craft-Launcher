@@ -761,5 +761,115 @@
     }
   },
   "targetClientSupportNone": "该资源未声明版本或加载器限制，所有客户端均可安装。",
-  "commonUnknownVersion": "未知版本"
+  "commonUnknownVersion": "未知版本",
+  "pluginsTitle": "插件中心",
+  "pluginsSubtitle": "浏览已安装的插件并打开其 JSON 界面。",
+  "pluginsEmpty": "尚未安装插件。将插件放入 BGCL/plugins 后点击刷新。",
+  "pluginsRefresh": "刷新插件列表",
+  "pluginOpenFolder": "打开插件目录",
+  "pluginFolderUnavailable": "插件目录尚未初始化，请先完成启动器设置。",
+  "pluginsLoadFailed": "无法加载插件：{error}",
+  "@pluginsLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginsNoUi": "该插件没有可用的 UI 文档。",
+  "pluginsVersionAuthor": "{version} · {author}",
+  "@pluginsVersionAuthor": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "author": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginsPermissions": "权限：{permissions}",
+  "@pluginsPermissions": {
+    "placeholders": {
+      "permissions": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginBack": "返回插件列表",
+  "pluginLoading": "正在加载插件…",
+  "pluginPermissionDenied": "权限不足：插件未获得 {permission} 权限，无法执行 {action}。",
+  "@pluginPermissionDenied": {
+    "placeholders": {
+      "permission": {
+        "type": "String"
+      },
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginActionFailed": "插件操作失败：{error}",
+  "@pluginActionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginActionInvalid": "未知或不支持的插件操作：{action}",
+  "@pluginActionInvalid": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginFileSaved": "已保存到插件目录：{path}",
+  "@pluginFileSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginFileRead": "已读取：{path}",
+  "@pluginFileRead": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginFileDownloaded": "下载完成：{path}",
+  "@pluginFileDownloaded": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginWebviewPermissionDenied": "权限不足：webview 节点需要 webview 权限。",
+  "pluginWebviewPlaceholder": "Webview: {url}（后续版本接入）",
+  "@pluginWebviewPlaceholder": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "workbenchHubTitle": "功能中枢",
+  "workbenchHubSubtitle": "插件、系统监控与实用工具的统一入口。",
+  "workbenchPluginCenterDescription": "浏览、运行并管理已安装的插件界面。",
+  "workbenchSystemMonitor": "系统监控",
+  "workbenchSystemMonitorDescription": "查看 Windows 内存与 CPU 状态。",
+  "workbenchSystemMonitorPlaceholder": "未来将在此显示 Windows 内存/CPU 状态。",
+  "workbenchNbtViewer": "NBT 查看器",
+  "workbenchNbtViewerDescription": "快速浏览与校验存档 NBT 数据。",
+  "workbenchNbtPlaceholder": "未来将在此浏览与编辑 NBT 数据。",
+  "workbenchSaveBackup": "存档备份中心",
+  "workbenchSaveBackupDescription": "一键备份与恢复本地世界存档",
+  "workbenchSaveBackupPlaceholder": "未来将在此支持一键打包备份存档，防止心血丢失。",
+  "workbenchComingSoon": "开发中",
+  "workbenchBack": "返回功能中枢"
 }

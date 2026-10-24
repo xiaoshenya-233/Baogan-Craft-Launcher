@@ -258,8 +258,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       aggregatePreference: widget.aggregatePreference,
                       mcimEnabled: widget.mcimEnabled,
                       onMcimEnabledChanged: widget.onMcimEnabledChanged,
-                      onDownloadSourceChanged:
-                          widget.onDownloadSourceChanged,
+                      onDownloadSourceChanged: widget.onDownloadSourceChanged,
                       onAggregatePreferenceChanged:
                           widget.onAggregatePreferenceChanged,
                     ),
@@ -450,6 +449,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         _buildWallpaperModeControls(dark: false),
                         const SizedBox(height: 12),
                         _buildWallpaperModeControls(dark: true),
+                        const SizedBox(height: 12),
+                        _buildWallpaperStartupOption(),
                       ],
                     ),
                   ),
@@ -501,7 +502,8 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildLanguageSelector() {
     final l10n = AppLocalizations.of(context)!;
     final currentCode = widget.appearance.locale.languageCode;
-    final selectedCode = PreferencesStore.supportedLanguages.contains(currentCode)
+    final selectedCode =
+        PreferencesStore.supportedLanguages.contains(currentCode)
         ? currentCode
         : PreferencesStore.defaultLanguage;
     return Align(
@@ -527,7 +529,9 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icon(Icons.expand_more_rounded, size: 18, color: _muted),
               style: TextStyle(
                 fontSize: 12,
-                color: _usesDarkPalette ? Colors.white : const Color(0xFF26351F),
+                color: _usesDarkPalette
+                    ? Colors.white
+                    : const Color(0xFF26351F),
               ),
               items: [
                 DropdownMenuItem(
@@ -575,10 +579,7 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               FilledButton.icon(
                 onPressed: () => showAboutLauncherDialog(context),
-                icon: const Icon(
-                  Icons.volunteer_activism_outlined,
-                  size: 18,
-                ),
+                icon: const Icon(Icons.volunteer_activism_outlined, size: 18),
                 label: Text(l10n.aboutLicenseButton),
               ),
               _translucentButton(
@@ -587,7 +588,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     try {
                       await PlatformLauncher.openUrl(launcherRepoUrl);
                     } on Object catch (error) {
-                      _showVersionMessage(l10n.settingsOpenBrowserFailed('$error'));
+                      _showVersionMessage(
+                        l10n.settingsOpenBrowserFailed('$error'),
+                      );
                     }
                   },
                   icon: const Icon(Icons.open_in_new_rounded, size: 17),
@@ -702,6 +705,203 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildWallpaperStartupOption() {
+    final random = widget.appearance.randomWallpaperOnStartup;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _usesDarkPalette
+            ? const Color(0x66101510)
+            : const Color(0xFFF1F4ED),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _panelBorderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '壁纸启动方式',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('固定当前壁纸'),
+                selected: !random,
+                showCheckmark: false,
+                onSelected: (_) => unawaited(
+                  widget.appearance.setRandomWallpaperOnStartup(false),
+                ),
+              ),
+              ChoiceChip(
+                label: const Text('启动时随机抽取'),
+                selected: random,
+                showCheckmark: false,
+                onSelected: (_) => unawaited(
+                  widget.appearance.setRandomWallpaperOnStartup(true),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showWallpaperManager({required bool dark}) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final paths = widget.appearance.wallpaperPaths(dark);
+          final active = widget.appearance.wallpaperPath(dark);
+          final scheme = Theme.of(context).colorScheme;
+          return Container(
+            height: MediaQuery.sizeOf(context).height * 0.68,
+            decoration: BoxDecoration(
+              color: _usesDarkPalette
+                  ? const Color(0xFF151B14)
+                  : const Color(0xFFF7FAF4),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              border: Border.all(color: _panelBorderColor),
+            ),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(
+                    dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                    color: scheme.primary,
+                  ),
+                  title: Text(
+                    dark ? '深色壁纸管理' : '浅色壁纸管理',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  trailing: IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ),
+                Divider(height: 1, color: _panelBorderColor),
+                Expanded(
+                  child: paths.isEmpty
+                      ? Center(
+                          child: Text(
+                            '暂无壁纸，点击下方添加。',
+                            style: TextStyle(color: _muted, fontSize: 12),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: paths.length,
+                          itemBuilder: (context, index) {
+                            final path = paths[index];
+                            final selected = path == active;
+                            return RepaintBoundary(
+                              child: Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                color: selected
+                                    ? scheme.primaryContainer.withValues(
+                                        alpha: 0.45,
+                                      )
+                                    : _palette.panelColor,
+                                child: ListTile(
+                                  leading: ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.file(
+                                      File(path),
+                                      width: 56,
+                                      height: 40,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => SizedBox(
+                                        width: 56,
+                                        height: 40,
+                                        child: ColoredBox(
+                                          color: _palette.panelAccentColor,
+                                          child: const Icon(
+                                            Icons.broken_image_outlined,
+                                            size: 18,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    path.split(RegExp(r'[\\/]')).last,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  subtitle: selected
+                                      ? Text(
+                                          '当前壁纸',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: scheme.primary,
+                                          ),
+                                        )
+                                      : null,
+                                  trailing: IconButton(
+                                    tooltip: '删除壁纸',
+                                    onPressed: () async {
+                                      await widget.appearance.removeWallpaper(
+                                        dark: dark,
+                                        path: path,
+                                      );
+                                      if (sheetContext.mounted) {
+                                        setSheetState(() {});
+                                      }
+                                    },
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  onTap: () async {
+                                    await widget.appearance.selectWallpaper(
+                                      dark: dark,
+                                      path: path,
+                                    );
+                                    if (sheetContext.mounted) {
+                                      setSheetState(() {});
+                                    }
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        widget.onChooseWallpaper(dark);
+                      },
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                      label: const Text('添加壁纸'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   String _wallpaperModeLabel(
     WallpaperDisplayMode mode,
     AppLocalizations l10n,
@@ -789,6 +989,15 @@ class _SettingsPageState extends State<SettingsPage> {
                   path == null
                       ? l10n.settingsChooseImage
                       : l10n.settingsChangeImage,
+                ),
+              ),
+              _translucentButton(
+                OutlinedButton.icon(
+                  onPressed: () => _showWallpaperManager(dark: dark),
+                  icon: const Icon(Icons.collections_outlined),
+                  label: Text(
+                    '管理壁纸 (${widget.appearance.wallpaperPaths(dark).length})',
+                  ),
                 ),
               ),
               if (path != null)

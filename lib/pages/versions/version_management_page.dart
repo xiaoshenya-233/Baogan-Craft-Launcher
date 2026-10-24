@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../../services/installer/version_models.dart';
@@ -144,6 +143,7 @@ class VersionManagementPage extends StatelessWidget {
   Widget _translucentCircularButton(Widget button) {
     return TranslucentCircularButtonSurface(child: button);
   }
+
   Widget _buildVersionManagement() {
     final query = _versionSearchQuery.trim().toLowerCase();
     final versions = _versions
@@ -248,22 +248,22 @@ class VersionManagementPage extends StatelessWidget {
                     key: _sectionKeys['版本列表'],
                     child: TextField(
                       onChanged: (value) => onSearchChanged(value),
-                    decoration: InputDecoration(
-                      hintText: '检索客户端名称、Minecraft 版本或加载器',
-                      prefixIcon: Icon(Icons.search_rounded, color: _muted),
-                      suffixIcon: _versionSearchQuery.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: '清空检索',
-                              onPressed: () => onSearchChanged(''),
-                              icon: Icon(Icons.close_rounded, color: _muted),
-                            ),
-                      filled: true,
-                      fillColor: _panelColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(11),
-                        borderSide: BorderSide.none,
-                      ),
+                      decoration: InputDecoration(
+                        hintText: '检索客户端名称、Minecraft 版本或加载器',
+                        prefixIcon: Icon(Icons.search_rounded, color: _muted),
+                        suffixIcon: _versionSearchQuery.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: '清空检索',
+                                onPressed: () => onSearchChanged(''),
+                                icon: Icon(Icons.close_rounded, color: _muted),
+                              ),
+                        filled: true,
+                        fillColor: _panelColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(11),
+                          borderSide: BorderSide.none,
+                        ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(11),
                           borderSide: BorderSide.none,
@@ -549,8 +549,6 @@ class VersionManagementPage extends StatelessWidget {
     );
   }
 
-
-
   Widget _buildActionButton({
     required IconData icon,
     required String label,
@@ -724,7 +722,6 @@ class VersionManagementPage extends StatelessWidget {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) => _buildVersionManagement();

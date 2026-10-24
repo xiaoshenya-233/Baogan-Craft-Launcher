@@ -272,5 +272,115 @@
   "targetClientSupportVersions": "Supported versions: {versions}",
   "targetClientSupportLoaders": "Supported loaders: {loaders}",
   "targetClientSupportNone": "This resource declares no version or loader limits, so any client can be used.",
-  "commonUnknownVersion": "Unknown version"
+  "commonUnknownVersion": "Unknown version",
+  "pluginsTitle": "Plugin Center",
+  "pluginsSubtitle": "Browse installed plugins and open their JSON UI.",
+  "pluginsEmpty": "No plugins installed yet. Drop a plugin into BGCL/plugins and refresh.",
+  "pluginsRefresh": "Refresh plugin list",
+  "pluginOpenFolder": "Open plugin folder",
+  "pluginFolderUnavailable": "The plugin folder is not ready. Finish launcher setup first.",
+  "pluginsLoadFailed": "Could not load the plugin: {error}",
+  "@pluginsLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginsNoUi": "This plugin has no UI document.",
+  "pluginsVersionAuthor": "{version} · {author}",
+  "@pluginsVersionAuthor": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "author": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginsPermissions": "Permissions: {permissions}",
+  "@pluginsPermissions": {
+    "placeholders": {
+      "permissions": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginBack": "Back to plugins",
+  "pluginLoading": "Loading plugin…",
+  "pluginPermissionDenied": "Permission denied: the plugin lacks the {permission} permission for {action}.",
+  "@pluginPermissionDenied": {
+    "placeholders": {
+      "permission": {
+        "type": "String"
+      },
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginActionFailed": "Plugin action failed: {error}",
+  "@pluginActionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginActionInvalid": "Unknown or unsupported plugin action: {action}",
+  "@pluginActionInvalid": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginFileSaved": "Saved to the plugin folder: {path}",
+  "@pluginFileSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginFileRead": "Read: {path}",
+  "@pluginFileRead": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginFileDownloaded": "Download complete: {path}",
+  "@pluginFileDownloaded": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginWebviewPermissionDenied": "Permission denied: the webview node requires the webview permission.",
+  "pluginWebviewPlaceholder": "Webview: {url} (coming in a later version)",
+  "@pluginWebviewPlaceholder": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "workbenchHubTitle": "Feature Hub",
+  "workbenchHubSubtitle": "One place for plugins, system monitors and utilities.",
+  "workbenchPluginCenterDescription": "Browse, run and manage installed plugin UIs.",
+  "workbenchSystemMonitor": "System Monitor",
+  "workbenchSystemMonitorDescription": "Check Windows memory and CPU usage.",
+  "workbenchSystemMonitorPlaceholder": "Windows memory and CPU status will appear here.",
+  "workbenchNbtViewer": "NBT Viewer",
+  "workbenchNbtViewerDescription": "Browse and validate save-file NBT data.",
+  "workbenchNbtPlaceholder": "NBT data will be browsable here.",
+  "workbenchSaveBackup": "Save Backup Center",
+  "workbenchSaveBackupDescription": "Back up and restore local world saves in one click",
+  "workbenchSaveBackupPlaceholder": "One-click save archiving will arrive here so your worlds are never lost.",
+  "workbenchComingSoon": "In development",
+  "workbenchBack": "Back to feature hub"
 }

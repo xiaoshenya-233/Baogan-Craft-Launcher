@@ -3,9 +3,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'models.dart';
+import 'modrinth_version_parser.dart';
 
 int _compareApiVersionNumbers(String left, String right) {
   final leftList = RegExp(r'\d+|[A-Za-z]+')
@@ -130,7 +133,7 @@ class MinecraftCatalogService {
   Future<dynamic> _getJson(Uri uri) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/26.1alpha1.1 (Minecraft version catalog)';
+      ..userAgent = 'BlockLauncher/26.1alpha2 (Minecraft version catalog)';
     try {
       final request = await client
           .getUrl(uri)
@@ -154,6 +157,12 @@ class MinecraftCatalogService {
 }
 
 class ModrinthService {
+  static const String _apiHost = mcimApiHost;
+  static const String _apiPrefix = '/modrinth';
+
+  static Uri _apiUri(String path, [Map<String, String>? query]) =>
+      Uri.https(_apiHost, '$_apiPrefix$path', query);
+
   static Future<ModrinthFile> fetchFabricApiFile(
     String minecraftVersion, {
     DownloadCancellationToken? cancellation,
@@ -161,13 +170,13 @@ class ModrinthService {
     cancellation?.throwIfCancelled();
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/26.1alpha1.1 (Fabric API installer)';
+      ..userAgent = 'BlockLauncher/26.1alpha2 (Fabric API installer)';
     void abort() => client.close(force: true);
     cancellation?.addListener(abort);
     try {
       final response = await _getJson(
         client,
-        Uri.https('api.modrinth.com', '/v2/project/P7dR8mSH/version', {
+        _apiUri('/v2/project/P7dR8mSH/version', {
           'game_versions': jsonEncode([minecraftVersion]),
           'loaders': jsonEncode(['fabric']),
           'limit': '20',
@@ -189,7 +198,7 @@ class ModrinthService {
               final url = file['url'];
               if (filename is! String || url is! String) return null;
               return (
-                file: ModrinthFile(filename: filename, url: url),
+                file: ModrinthFile(filename: filename, url: mcimMirrorUrl(url)),
                 primary: file['primary'] == true,
               );
             })
@@ -242,7 +251,7 @@ class ModrinthService {
     );
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 20)
-      ..userAgent = 'BlockLauncher/26.1alpha1.1 (Fabric API installer)';
+      ..userAgent = 'BlockLauncher/26.1alpha2 (Fabric API installer)';
     void abort() => client.close(force: true);
     cancellation?.addListener(abort);
     try {
@@ -301,9 +310,9 @@ class ModrinthService {
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha2 (resource browser)';
     try {
-      final searchUri = Uri.https('api.modrinth.com', '/v2/search', {
+      final searchUri = _apiUri('/v2/search', {
         'query': query,
         'facets': jsonEncode([
           ['project_type:${category.modrinthProjectType}'],
@@ -331,11 +340,22 @@ class ModrinthService {
             throw const FormatException('项目缺少 ID 或标题。');
           }
           final versions = includeVersions
-              ? await _fetchProjectVersions(client, id)
+              ? await _fetchVersionPageWithClient(
+                  client,
+                  id,
+                  offset: 0,
+                  limit: resourceVersionPageSize,
+                )
               : const <ModrinthVersion>[];
           final icon = project['icon_url'];
           final description = project['description'];
           final categories = project['categories'];
+          final supportedGameVersions = project['versions'] is List
+              ? (project['versions'] as List).whereType<String>().toList()
+              : const <String>[];
+          final supportedLoaders = project['loaders'] is List
+              ? (project['loaders'] as List).whereType<String>().toList()
+              : const <String>[];
           return ModrinthProject(
             id: id,
             title: title,
@@ -350,8 +370,12 @@ class ModrinthService {
             tags: categories is List
                 ? categories.whereType<String>().toList()
                 : const [],
-            iconUrl: icon is String && icon.isNotEmpty ? icon : null,
+            iconUrl: icon is String && icon.isNotEmpty
+                ? mcimMirrorUrl(icon)
+                : null,
             versions: versions,
+            supportedGameVersions: supportedGameVersions,
+            supportedLoaders: supportedLoaders,
           );
         }),
       );
@@ -368,9 +392,9 @@ class ModrinthService {
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
+      ..userAgent = 'BlockLauncher/26.1alpha2 (resource browser)';
     try {
-      final projectUri = Uri.https('api.modrinth.com', '/v2/project/$id');
+      final projectUri = _apiUri('/v2/project/$id');
       final project = await _getJson(client, projectUri);
       if (project is! Map<String, dynamic>) {
         throw const FormatException('项目详情响应格式无效。');
@@ -379,10 +403,25 @@ class ModrinthService {
       if (title is! String || title.isEmpty) {
         throw const FormatException('项目详情缺少标题。');
       }
-      final versions = await _fetchProjectVersions(client, id);
+      final versions = await _fetchVersionPageWithClient(
+        client,
+        id,
+        offset: 0,
+        limit: resourceVersionPageSize,
+      );
       final icon = project['icon_url'];
       final description = project['description'];
       final categories = project['categories'];
+      final supportedGameVersions = project['game_versions'] is List
+          ? (project['game_versions'] as List).whereType<String>().toList(
+              growable: false,
+            )
+          : const <String>[];
+      final supportedLoaders = project['loaders'] is List
+          ? (project['loaders'] as List).whereType<String>().toList(
+              growable: false,
+            )
+          : const <String>[];
       return ModrinthProject(
         id: id,
         title: title,
@@ -397,154 +436,136 @@ class ModrinthService {
         tags: categories is List
             ? categories.whereType<String>().toList()
             : const [],
-        iconUrl: icon is String && icon.isNotEmpty ? icon : null,
+        iconUrl: icon is String && icon.isNotEmpty ? mcimMirrorUrl(icon) : null,
         versions: versions,
+        supportedGameVersions: supportedGameVersions,
+        supportedLoaders: supportedLoaders,
       );
     } finally {
       client.close(force: true);
     }
   }
 
-  static Future<List<ModrinthVersion>> fetchVersions(String id) async {
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 15)
-      ..userAgent = 'BlockLauncher/26.1alpha1.1 (resource browser)';
-    try {
-      return await _fetchProjectVersions(client, id);
-    } finally {
-      client.close(force: true);
-    }
-  }
-
-  /// Loads every version page instead of only the first 100 entries.
+  /// Fetches the complete version metadata index for counting cards.
   ///
-  /// Modrinth's project version endpoint is paginated. Popular projects can
-  /// have thousands of files, so reading one page leaves most historical
-  /// versions invisible in the version picker.
-  static Future<List<ModrinthVersion>> _fetchProjectVersions(
-    HttpClient client,
-    String projectId,
-  ) async {
+  /// Modrinth defaults to 20 versions when no limit is supplied, so the index
+  /// must page until the API returns a short page. This data is only used to
+  /// calculate per-version file totals; expanded cards still render at most 20
+  /// rows at a time.
+  static Future<List<ModrinthVersion>> fetchVersionIndex(String id) async {
     const pageSize = 100;
-    // Modrinth's version endpoint has no total-count field. Keep requesting
-    // pages until a short/empty page is returned; the high guard only prevents
-    // an endless loop if an upstream proxy ignores the offset parameter.
     const maxPages = 1000;
-    final versions = <ModrinthVersion>[];
-    final seen = <String>{};
-
-    for (var page = 0; page < maxPages; page++) {
-      final offset = page * pageSize;
-      dynamic versionJson;
-      Object? pageError;
-      for (var attempt = 0; attempt < 3; attempt++) {
-        try {
-          versionJson = await _getJson(
-            client,
-            Uri.https('api.modrinth.com', '/v2/project/$projectId/version', {
-              'limit': '$pageSize',
-              'offset': '$offset',
-            }),
-          );
-          pageError = null;
-          break;
-        } on Exception catch (error) {
-          pageError = error;
-          if (attempt < 2) {
-            await Future<void>.delayed(
-              Duration(milliseconds: 250 * (attempt + 1)),
-            );
-          }
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10)
+      ..userAgent = 'BlockLauncher/26.1alpha2 (resource browser)';
+    try {
+      final versions = <ModrinthVersion>[];
+      final seen = <String>{};
+      var offset = 0;
+      for (var page = 0; page < maxPages; page++) {
+        final rows = await _fetchVersionPageWithClient(
+          client,
+          id,
+          offset: offset,
+          limit: pageSize,
+        );
+        if (rows.isEmpty) break;
+        for (final version in rows) {
+          final key =
+              version.versionId ??
+              '${version.name}|'
+                  '${version.files.map((file) => file.filename).join(',')}';
+          if (seen.add(key)) versions.add(version);
         }
+        offset += rows.length;
+        if (rows.length < pageSize) break;
       }
-      if (pageError != null) {
-        // Keep earlier pages when the network drops mid-pagination. A first
-        // page failure is still surfaced so callers can fall back.
-        if (page == 0) throw pageError;
-        break;
-      }
-      if (versionJson is! List) {
-        throw const FormatException('项目版本响应不是列表。');
-      }
-      final rows = versionJson.whereType<Map<String, dynamic>>().toList();
-      if (rows.isEmpty) break;
-
-      var added = 0;
-      for (final row in rows) {
-        final versionId = row['id'];
-        final fileNames = (row['files'] is List ? row['files'] as List : [])
-            .whereType<Map<String, dynamic>>()
-            .map((file) => file['filename'])
-            .whereType<String>()
-            .join(',');
-        final key = versionId is String && versionId.isNotEmpty
-            ? versionId
-            : '${row['name']}|$fileNames';
-        if (!seen.add(key)) continue;
-        final version = _modrinthVersionFromRow(row);
-        if (version == null) continue;
-        versions.add(version);
-        added++;
-      }
-      if (rows.length < pageSize || added == 0) break;
+      return versions;
+    } finally {
+      client.close(force: true);
     }
-    return versions;
   }
 
-  static ModrinthVersion? _modrinthVersionFromRow(Map<String, dynamic> row) {
-    final files = (row['files'] is List ? row['files'] as List : [])
-        .whereType<Map<String, dynamic>>()
-        .map((file) {
-          final filename = file['filename'];
-          final url = file['url'];
-          if (filename is! String || url is! String) return null;
-          return ModrinthFile(filename: filename, url: url);
-        })
-        .whereType<ModrinthFile>()
-        .toList();
-    final rawGameVersions = row['game_versions'] is List
-        ? (row['game_versions'] as List).whereType<String>().toList()
-        : <String>[];
-    final hasSnapshot = rawGameVersions.any(apiIsSnapshotVersion);
-    var gameVersions = apiNormalizeGameVersions(rawGameVersions);
-    if (gameVersions.isEmpty && !hasSnapshot) {
-      final hint =
-          '${row['name'] ?? ''} '
-          '${files.map((file) => file.filename).join(' ')}';
-      gameVersions = apiNormalizeGameVersions(
-        apiInferMinecraftVersions(hint),
+  /// Fetches exactly one page of versions.
+  ///
+  /// This is the only version-list path used by the UI. The request timeout is
+  /// limited to this one page, never to the complete project history.
+  static Future<List<ModrinthVersion>> fetchVersionPage(
+    String id, {
+    int offset = 0,
+    int limit = resourceVersionPageSize,
+    List<String>? gameVersions,
+    List<String>? loaders,
+  }) async {
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10)
+      ..userAgent = 'BlockLauncher/26.1alpha2 (resource browser)';
+    try {
+      return await _fetchVersionPageWithClient(
+        client,
+        id,
+        offset: offset,
+        limit: limit,
+        gameVersions: gameVersions,
+        loaders: loaders,
       );
+    } finally {
+      client.close(force: true);
     }
-    return ModrinthVersion(
-      name: row['name'] is String ? row['name'] as String : '',
-      versionType: row['version_type'] is String
-          ? row['version_type'] as String
-          : 'release',
-      downloads: row['downloads'] is int ? row['downloads'] as int : 0,
-      gameVersions: gameVersions,
-      loaders: row['loaders'] is List
-          ? (row['loaders'] as List).whereType<String>().toList()
-          : const [],
-      files: files,
-      versionId: row['id'] is String && (row['id'] as String).isNotEmpty
-          ? row['id'] as String
-          : null,
-    );
+  }
+
+  static Future<List<ModrinthVersion>> _fetchVersionPageWithClient(
+    HttpClient client,
+    String id, {
+    required int offset,
+    required int limit,
+    List<String>? gameVersions,
+    List<String>? loaders,
+  }) async {
+    final query = <String, String>{'limit': '$limit', 'offset': '$offset'};
+    if (gameVersions != null && gameVersions.isNotEmpty) {
+      query['game_versions'] = jsonEncode(gameVersions);
+    }
+    if (loaders != null && loaders.isNotEmpty) {
+      query['loaders'] = jsonEncode(loaders);
+    }
+    final bytes = await _getBytes(
+      client,
+      _apiUri('/v2/project/$id/version', query),
+    ).timeout(const Duration(seconds: 10));
+    final versions = await Isolate.run(() => parseModrinthVersionPage(bytes));
+    if (versions.length <= limit) return versions;
+    final start = offset < 0
+        ? 0
+        : (offset > versions.length ? versions.length : offset);
+    if (start >= versions.length) return const <ModrinthVersion>[];
+    final next = start + limit;
+    final end = next > versions.length ? versions.length : next;
+    return versions.sublist(start, end);
   }
 
   static Future<dynamic> _getJson(HttpClient client, Uri uri) async {
+    final bytes = await _getBytes(client, uri);
+    return jsonDecode(utf8.decode(bytes, allowMalformed: true));
+  }
+
+  /// Collects raw response bytes; UTF-8 decoding and JSON parsing happen in an
+  /// isolate so a huge version page never blocks the UI thread.
+  static Future<Uint8List> _getBytes(HttpClient client, Uri uri) async {
     final request = await client
         .getUrl(uri)
         .timeout(const Duration(seconds: 15));
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     final response = await request.close().timeout(const Duration(seconds: 15));
-    final body = await utf8.decoder
-        .bind(response)
-        .join()
-        .timeout(const Duration(seconds: 20));
+    final buffer = BytesBuilder(copy: true);
+    await for (final chunk in response.timeout(const Duration(seconds: 20))) {
+      buffer.add(chunk);
+    }
+    final bytes = buffer.takeBytes();
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      final body = utf8.decode(bytes, allowMalformed: true);
       throw HttpException('HTTP ${response.statusCode}: $body', uri: uri);
     }
-    return jsonDecode(body);
+    return bytes;
   }
 }

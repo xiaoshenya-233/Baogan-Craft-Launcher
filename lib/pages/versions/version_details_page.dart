@@ -151,8 +151,8 @@ class VersionDetailsPage extends StatelessWidget {
   List<JavaRuntime> get _javaRuntimes => java.runtimes;
 
   /// Memory shown on the slider: the client override, else the global default.
-  double get _effectiveMemoryGb =>
-      (clientSettings.ownMemoryGb ?? memoryGb).clamp(1, math.max(2, maxMemoryGb));
+  double get _effectiveMemoryGb => (clientSettings.ownMemoryGb ?? memoryGb)
+      .clamp(1, math.max(2, maxMemoryGb));
 
   Widget _translucentButton(Widget button, {double radius = 10}) {
     return TranslucentButtonSurface(radius: radius, child: button);
@@ -235,10 +235,7 @@ class VersionDetailsPage extends StatelessWidget {
                   const SizedBox(height: 18),
                   Row(
                     children: [
-                      VersionIconEditor(
-                        version: version,
-                        onMessage: onMessage,
-                      ),
+                      VersionIconEditor(version: version, onMessage: onMessage),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -625,7 +622,6 @@ class VersionDetailsPage extends StatelessWidget {
     final key = anchor == null ? null : _sectionKeys[anchor];
     return key == null ? content : KeyedSubtree(key: key, child: content);
   }
-
 
   String _fileName(String path) => path.split(Platform.pathSeparator).last;
 

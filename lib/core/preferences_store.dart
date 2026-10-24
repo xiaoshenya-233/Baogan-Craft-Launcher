@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'launcher_log.dart';
 import 'path_manager.dart';
 
@@ -25,6 +27,12 @@ class PreferencesStore {
 
   /// Key of the launcher UI language.
   static const String languageKey = 'app_language';
+
+  /// Prefix for per-plugin permission decisions (`always` / `ask` / `deny`).
+  static const String pluginPermissionPrefix = 'pluginPermission_';
+
+  /// Default decision until the user explicitly answers a UAC prompt.
+  static const String pluginPermissionAsk = 'ask';
 
   /// Language used when nothing (or an unknown value) is persisted.
   static const String defaultLanguage = 'zh';
@@ -116,14 +124,43 @@ class PreferencesStore {
   /// Languages the launcher UI currently ships translations for.
   static const List<String> supportedLanguages = <String>['zh', 'en'];
 
+  static String pluginPermissionKey(String pluginId, String permission) =>
+      '$pluginPermissionPrefix${pluginId}_$permission';
+
+  /// Reads one plugin permission decision; missing values default to `ask`.
+  Future<String> readPluginPermissionState(
+    String pluginId,
+    String permission,
+  ) async {
+    try {
+      final all = await readAll();
+      final value = all[pluginPermissionKey(pluginId, permission)];
+      return value is String && value.trim().isNotEmpty
+          ? value.trim()
+          : pluginPermissionAsk;
+    } on Object {
+      return pluginPermissionAsk;
+    }
+  }
+
+  Future<void> setPluginPermissionState(
+    String pluginId,
+    String permission,
+    String state,
+  ) => write(pluginPermissionKey(pluginId, permission), state);
+
   Future<void> write(String key, Object? value) {
     final task = _writeQueue.then((_) => _writeNow(key, value));
-    // Keep the queue usable after a failed write so later saves still run.
-    _writeQueue = task.then<void>(
+    // Keep the queue usable after a failed write, and make every awaited write
+    // wait until the shared queue tail has settled. Returning only `task` left
+    // a pending `.then` tail behind, which could block the next write forever
+    // when a widget test zone was torn down between the two.
+    final settled = task.then<void>(
       (_) {},
       onError: (Object error, StackTrace stackTrace) {},
     );
-    return task;
+    _writeQueue = settled;
+    return task.whenComplete(() => settled);
   }
 
   Future<void> _writeNow(String key, Object? value) async {
@@ -144,6 +181,15 @@ class PreferencesStore {
       'Settings',
       '保存设置 $key = ${redactLogSecrets(value.toString())}',
     );
+  }
+
+  /// Clears the shared queue between widget tests.
+  ///
+  /// Production code never calls this; it exists so a test that tears down its
+  /// widget zone cannot leave a pending file write blocking the next test.
+  @visibleForTesting
+  static void resetWriteQueueForTest() {
+    _writeQueue = Future<void>.value();
   }
 
   File? get _file =>

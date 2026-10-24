@@ -58,9 +58,7 @@ class MinecraftLaunchService {
       throw const FormatException('版本配置缺少 mainClass，无法启动。');
     }
 
-    final librariesDirectory = Directory(
-      joinPath(minecraftPath, 'libraries'),
-    );
+    final librariesDirectory = Directory(joinPath(minecraftPath, 'libraries'));
     final classPath = <String>[];
     final nativeArchives = <File>[];
     final libraries = config['libraries'];
@@ -187,7 +185,7 @@ class MinecraftLaunchService {
         'classpath_separator': classpathSeparator,
         'classpath': launchClassPath.join(classpathSeparator),
         'launcher_name': 'BLOCK_LAUNCHER',
-        'launcher_version': '26.1alpha1.1',
+        'launcher_version': '26.1alpha2',
       };
 
       final jvmArguments = _argumentList(
@@ -205,7 +203,7 @@ class MinecraftLaunchService {
         '-Xmx${math.max(1, memoryGb)}G',
         '-Djava.library.path=${nativesDirectory.path}',
         '-Dminecraft.launcher.brand=BLOCK_LAUNCHER',
-        '-Dminecraft.launcher.version=26.1alpha1.1',
+        '-Dminecraft.launcher.version=26.1alpha2',
         if (javaAgent != null) '-javaagent:$javaAgent',
         ...jvmArguments.map((value) {
           var replaced = _replacePlaceholders(value, placeholders);
@@ -505,7 +503,6 @@ Future<List<MinecraftVersion>> getLocalVersions(String minecraftPath) async {
         // Invalid parent JSON: still expose metadata from the child itself.
       }
       final identity = inferVersionIdentity(
-        folderName: folderName,
         configId: id,
         config: resolvedConfig,
         chainIds: chainIds,
@@ -613,6 +610,11 @@ class MinecraftLaunchSession {
   late final Future<MinecraftLaunchResult> _completion;
 
   int get pid => process.pid;
+
+  /// Terminates the running game process (used by the task capsule stop action).
+  void terminate() {
+    process.kill();
+  }
 
   String get output => _output.toString();
 

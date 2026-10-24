@@ -124,6 +124,32 @@ bool _looksLikeMinecraftVersion(String value) {
   return RegExp(r'^\d{2}w\d{2}[a-z]$', caseSensitive: false).hasMatch(trimmed);
 }
 
+/// Maps NeoForge's `<mcMinor>.<mcPatch>.<build>` scheme to a Minecraft version.
+String? _minecraftVersionFromNeoForge(String version) {
+  final parts = version.split('.');
+  if (parts.length < 2) return null;
+  final minor = int.tryParse(parts[0]);
+  final patch = int.tryParse(parts[1]);
+  if (minor == null || patch == null) return null;
+  return patch == 0 ? '1.$minor' : '1.$minor.$patch';
+}
+
+/// Forge 47.x is the artifact line for Minecraft 1.20.1.
+const Map<String, String> _forgeMajorMinecraftVersions = <String, String>{
+  '47': '1.20.1',
+  '48': '1.20.2',
+  '49': '1.20.4',
+  '50': '1.20.6',
+  '51': '1.21',
+  '52': '1.21.1',
+};
+
+/// Strict form required before an un-inherited JSON `id` may be treated as a
+/// Minecraft version. Modpack patch ids such as `1.5.4` still need loader
+/// evidence; arbitrary names never qualify.
+bool _isBareMinecraftVersion(String value) =>
+    RegExp(r'^\d+\.\d+(\.\d+)?$').hasMatch(value.trim());
+
 /// Extracts the Minecraft version from loader-specific profile IDs such as
 /// `fabric-loader-0.16.9-1.21.1`, `quilt-loader-0.26.0-1.21.1` and
 /// `1.20.1-forge-47.2.0`.
@@ -164,16 +190,15 @@ String? _minecraftVersionFromLoaderId(String value) {
 }
 
 /// PCL2-style metadata discovery: inheritance chain, then merged libraries,
-/// then launch arguments. This works even when the client directory was
-/// renamed to something like `我的整合包` and its JSON id has no version text.
+/// then launch arguments. Only JSON ids (`id` / `inheritsFrom`) are used, so a
+/// renamed folder (e.g. a modpack directory) can never fake a Minecraft or
+/// loader version.
 VersionIdentity inferVersionIdentity({
-  required String folderName,
   required String configId,
   required Map<String, dynamic> config,
   required List<String> chainIds,
 }) {
   final identifiers = <String>[
-    folderName,
     configId,
     ...chainIds,
   ].where((value) => value.trim().isNotEmpty).toList();
@@ -317,16 +342,19 @@ VersionIdentity inferVersionIdentity({
   }
 
   String? minecraftVersion;
-  final explicitMinecraftVersion = config['minecraftVersion'];
-  if (explicitMinecraftVersion is String &&
-      _looksLikeMinecraftVersion(explicitMinecraftVersion)) {
-    minecraftVersion = explicitMinecraftVersion.trim();
-  }
+  final rawInheritsFrom = config['inheritsFrom'];
+  final inheritsFrom = rawInheritsFrom is String ? rawInheritsFrom.trim() : '';
 
-  if (minecraftVersion == null) {
-    // The deepest inherited profile is usually the vanilla version. Iterate
-    // from the root towards the child so a loader profile cannot hide it.
-    for (final identifier in chainIds.reversed) {
+  // 1. `inheritsFrom` is authoritative. Only parent ids may provide the
+  // Minecraft version; the child's folder-derived id must never override it.
+  if (inheritsFrom.isNotEmpty) {
+    final parents = <String>[
+      inheritsFrom,
+      ...chainIds.reversed.where(
+        (identifier) => identifier != configId && identifier != inheritsFrom,
+      ),
+    ];
+    for (final identifier in parents) {
       final candidate =
           _minecraftVersionFromLoaderId(identifier) ??
           (_looksLikeMinecraftVersion(identifier) ? identifier.trim() : null);
@@ -337,22 +365,16 @@ VersionIdentity inferVersionIdentity({
     }
   }
 
+  // Explicit JSON metadata is safe when no inheritance could be resolved.
   if (minecraftVersion == null) {
-    for (final name in libraryNames) {
-      final coordinates = _mavenCoordinates(name);
-      if (coordinates == null) continue;
-      if (coordinates.group == 'net.minecraftforge' &&
-          coordinates.artifact == 'forge' &&
-          coordinates.version.contains('-')) {
-        final candidate = coordinates.version.split('-').first;
-        if (_looksLikeMinecraftVersion(candidate)) {
-          minecraftVersion = candidate;
-          break;
-        }
-      }
+    final explicitMinecraftVersion = config['minecraftVersion'];
+    if (explicitMinecraftVersion is String &&
+        _looksLikeMinecraftVersion(explicitMinecraftVersion)) {
+      minecraftVersion = explicitMinecraftVersion.trim();
     }
   }
 
+  // 2. Without a usable inheritsFrom, loader metadata wins over the id.
   if (minecraftVersion == null &&
       minecraftArgument != null &&
       _looksLikeMinecraftVersion(minecraftArgument)) {
@@ -360,15 +382,61 @@ VersionIdentity inferVersionIdentity({
   }
 
   if (minecraftVersion == null) {
-    for (final identifier in identifiers) {
-      final candidate =
-          _minecraftVersionFromLoaderId(identifier) ??
-          (_looksLikeMinecraftVersion(identifier) ? identifier.trim() : null);
-      if (candidate != null) {
-        minecraftVersion = candidate;
-        break;
+    for (final name in libraryNames) {
+      final coordinates = _mavenCoordinates(name);
+      if (coordinates == null) continue;
+      if (coordinates.group == 'net.minecraftforge' &&
+          coordinates.artifact == 'forge') {
+        final version = coordinates.version;
+        final prefix = version.contains('-') ? version.split('-').first : '';
+        if (_looksLikeMinecraftVersion(prefix)) {
+          minecraftVersion = prefix;
+          break;
+        }
+        final major = version.split('.').first;
+        final mapped = _forgeMajorMinecraftVersions[major];
+        if (mapped != null) {
+          minecraftVersion = mapped;
+          break;
+        }
+      }
+      if (coordinates.group == 'net.neoforged' &&
+          coordinates.artifact == 'neoforge') {
+        final mapped = _minecraftVersionFromNeoForge(coordinates.version);
+        if (mapped != null) {
+          minecraftVersion = mapped;
+          break;
+        }
       }
     }
+  }
+
+  if (minecraftVersion == null && loaderVersion != null) {
+    final normalizedLoaderVersion = loaderVersion.trim();
+    if (loaderType == 'Forge') {
+      final prefix = normalizedLoaderVersion.contains('-')
+          ? normalizedLoaderVersion.split('-').first
+          : '';
+      if (_looksLikeMinecraftVersion(prefix)) {
+        minecraftVersion = prefix;
+      } else {
+        minecraftVersion =
+            _forgeMajorMinecraftVersions[normalizedLoaderVersion
+                .split('.')
+                .first];
+      }
+    } else if (loaderType == 'NeoForge') {
+      minecraftVersion = _minecraftVersionFromNeoForge(normalizedLoaderVersion);
+    }
+  }
+
+  // 3. Only a plain, non-modded client may fall back to a Minecraft-like id.
+  // A modded profile whose loader line cannot be mapped is reported unknown.
+  if (minecraftVersion == null &&
+      inheritsFrom.isEmpty &&
+      loaderType == null &&
+      _isBareMinecraftVersion(configId)) {
+    minecraftVersion = configId.trim();
   }
 
   return VersionIdentity(
@@ -551,4 +619,3 @@ List<String> minecraftClientJarCandidates({
       joinPath(joinPath(versionsRoot, inherited), '$inherited.jar'),
   }.toList();
 }
-

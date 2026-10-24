@@ -967,4 +967,126 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get commonUnknownVersion => '未知版本';
+
+  @override
+  String get pluginsTitle => '插件中心';
+
+  @override
+  String get pluginsSubtitle => '浏览已安装的插件并打开其 JSON 界面。';
+
+  @override
+  String get pluginsEmpty => '尚未安装插件。将插件放入 BGCL/plugins 后点击刷新。';
+
+  @override
+  String get pluginsRefresh => '刷新插件列表';
+
+  @override
+  String get pluginOpenFolder => '打开插件目录';
+
+  @override
+  String get pluginFolderUnavailable => '插件目录尚未初始化，请先完成启动器设置。';
+
+  @override
+  String pluginsLoadFailed(String error) {
+    return '无法加载插件：$error';
+  }
+
+  @override
+  String get pluginsNoUi => '该插件没有可用的 UI 文档。';
+
+  @override
+  String pluginsVersionAuthor(String version, String author) {
+    return '$version · $author';
+  }
+
+  @override
+  String pluginsPermissions(String permissions) {
+    return '权限：$permissions';
+  }
+
+  @override
+  String get pluginBack => '返回插件列表';
+
+  @override
+  String get pluginLoading => '正在加载插件…';
+
+  @override
+  String pluginPermissionDenied(String permission, String action) {
+    return '权限不足：插件未获得 $permission 权限，无法执行 $action。';
+  }
+
+  @override
+  String pluginActionFailed(String error) {
+    return '插件操作失败：$error';
+  }
+
+  @override
+  String pluginActionInvalid(String action) {
+    return '未知或不支持的插件操作：$action';
+  }
+
+  @override
+  String pluginFileSaved(String path) {
+    return '已保存到插件目录：$path';
+  }
+
+  @override
+  String pluginFileRead(String path) {
+    return '已读取：$path';
+  }
+
+  @override
+  String pluginFileDownloaded(String path) {
+    return '下载完成：$path';
+  }
+
+  @override
+  String get pluginWebviewPermissionDenied => '权限不足：webview 节点需要 webview 权限。';
+
+  @override
+  String pluginWebviewPlaceholder(String url) {
+    return 'Webview: $url（后续版本接入）';
+  }
+
+  @override
+  String get workbenchHubTitle => '功能中枢';
+
+  @override
+  String get workbenchHubSubtitle => '插件、系统监控与实用工具的统一入口。';
+
+  @override
+  String get workbenchPluginCenterDescription => '浏览、运行并管理已安装的插件界面。';
+
+  @override
+  String get workbenchSystemMonitor => '系统监控';
+
+  @override
+  String get workbenchSystemMonitorDescription => '查看 Windows 内存与 CPU 状态。';
+
+  @override
+  String get workbenchSystemMonitorPlaceholder => '未来将在此显示 Windows 内存/CPU 状态。';
+
+  @override
+  String get workbenchNbtViewer => 'NBT 查看器';
+
+  @override
+  String get workbenchNbtViewerDescription => '快速浏览与校验存档 NBT 数据。';
+
+  @override
+  String get workbenchNbtPlaceholder => '未来将在此浏览与编辑 NBT 数据。';
+
+  @override
+  String get workbenchSaveBackup => '存档备份中心';
+
+  @override
+  String get workbenchSaveBackupDescription => '一键备份与恢复本地世界存档';
+
+  @override
+  String get workbenchSaveBackupPlaceholder => '未来将在此支持一键打包备份存档，防止心血丢失。';
+
+  @override
+  String get workbenchComingSoon => '开发中';
+
+  @override
+  String get workbenchBack => '返回功能中枢';
 }

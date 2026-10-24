@@ -413,7 +413,7 @@ Future<void> downloadArtifact(
   );
   final client = HttpClient()
     ..connectionTimeout = minecraftRequestTimeout
-    ..userAgent = 'BlockLauncher/26.1alpha1.1 (Minecraft installer)';
+    ..userAgent = 'BlockLauncher/26.1alpha2 (Minecraft installer)';
   void abort() => client.close(force: true);
   cancellation?.addListener(abort);
   try {

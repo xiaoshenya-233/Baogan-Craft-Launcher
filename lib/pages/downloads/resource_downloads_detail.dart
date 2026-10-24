@@ -180,10 +180,7 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
       children: [
         _translucentButton(
           OutlinedButton.icon(
-            onPressed:
-                (project.versions.isEmpty &&
-                        project.source == ResourceSource.modrinth) ||
-                    _isDownloadingResources
+            onPressed: _isDownloadingResources
                 ? null
                 : () => _installModrinthProject(project),
             icon: const Icon(Icons.download_rounded, size: 16),
@@ -258,10 +255,16 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
             _resourceDetailError!,
             style: const TextStyle(color: Color(0xFFE58A7A), fontSize: 11),
           ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => unawaited(_openResourceProject(project)),
+            icon: const Icon(Icons.refresh_rounded, size: 17),
+            label: const Text('加载失败，请重试'),
+          ),
         ],
         const SizedBox(height: 24),
         if (_isLoadingResourceDetail && project.versions.isEmpty)
-          Text('正在获取全部版本…', style: TextStyle(color: _muted))
+          Text('正在获取最新版本…', style: TextStyle(color: _muted))
         else
           _buildResourceVersionContent(project),
       ],
@@ -291,6 +294,7 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
                 _setPageState(() {
                   _resourceSelectedLoader = allResourceLoaderKey;
                   _resourceExpandedGameVersion = null;
+                  _detailCardVisibleCounts.clear();
                 });
               },
               showCheckmark: false,
@@ -304,6 +308,7 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
                   _setPageState(() {
                     _resourceSelectedLoader = key;
                     _resourceExpandedGameVersion = null;
+                    _detailCardVisibleCounts.clear();
                   });
                 },
                 showCheckmark: false,
@@ -344,6 +349,7 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
                 onSelected: (_) {
                   _setPageState(() {
                     _resourceSelectedGameFamily = family;
+                    _detailCardVisibleCounts.clear();
                     if (!_loaderKeysForFamily(
                       project,
                       family,
@@ -370,13 +376,28 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
     required String? loaderKey,
     List<String>? projectLoaders,
   }) {
-    final versions = _projectVersionsForGame(
-      project,
-      loaderKey: loaderKey,
-      projectLoaders: projectLoaders,
-      gameVersion: gameVersion,
-    );
+    final versions =
+        _projectVersionsForGame(
+          project,
+          loaderKey: loaderKey,
+          projectLoaders: projectLoaders,
+          gameVersion: gameVersion,
+        ).where((version) {
+          final file = version.files.firstOrNull;
+          return file != null && file.url.isNotEmpty;
+        }).toList();
+    final count = versions.length;
     final expanded = _resourceExpandedGameVersion == gameVersion;
+    final cardKey = _detailVersionCardKey(family, gameVersion, loaderKey);
+    final visibleCount =
+        _detailCardVisibleCounts[cardKey] ?? resourceVersionPageSize;
+    final shown = versions.take(visibleCount).toList();
+    final hasMore = shown.length < count;
+    final enabled = count > 0;
+    debugPrint(
+      '[VersionPicker] 当前版本: $gameVersion, '
+      '总版本数据源长度: ${project.versions.length}, 过滤后数量: $count',
+    );
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
@@ -394,12 +415,27 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                _setPageState(() {
-                  _resourceSelectedGameFamily = family;
-                  _resourceExpandedGameVersion = expanded ? null : gameVersion;
-                });
-              },
+              onTap: enabled
+                  ? () {
+                      debugPrint(
+                        '[VersionPicker] 请求: $gameVersion, '
+                        '加载器: ${loaderKey ?? allResourceLoaderKey}',
+                      );
+                      _setPageState(() {
+                        _resourceSelectedGameFamily = family;
+                        if (expanded) {
+                          _resourceExpandedGameVersion = null;
+                          _detailCardVisibleCounts.remove(cardKey);
+                        } else {
+                          _resourceExpandedGameVersion = gameVersion;
+                          _detailCardVisibleCounts.putIfAbsent(
+                            cardKey,
+                            () => resourceVersionPageSize,
+                          );
+                        }
+                      });
+                    }
+                  : null,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -413,26 +449,30 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
                         children: [
                           Text(
                             'Minecraft $gameVersion',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
+                              color: enabled
+                                  ? null
+                                  : _muted.withValues(alpha: 0.7),
                             ),
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            '${versions.length} 个可下载文件',
+                            '$count 个可下载文件',
                             style: TextStyle(fontSize: 10, color: _muted),
                           ),
                         ],
                       ),
                     ),
-                    Icon(
-                      expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      size: 20,
-                      color: _muted,
-                    ),
+                    if (enabled)
+                      Icon(
+                        expanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: _muted,
+                      ),
                   ],
                 ),
               ),
@@ -444,7 +484,7 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
             child: expanded
                 ? Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: versions.isEmpty
+                    child: shown.isEmpty
                         ? Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
@@ -453,15 +493,37 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
                             ),
                           )
                         : Column(
-                            children: versions
-                                .map(
-                                  (version) => _buildResourceVersionRow(
-                                    project,
-                                    version,
-                                    nested: true,
+                            children: [
+                              ...shown.map(
+                                (version) => _buildResourceVersionRow(
+                                  project,
+                                  version,
+                                  nested: true,
+                                ),
+                              ),
+                              if (hasMore) ...[
+                                const SizedBox(height: 4),
+                                Center(
+                                  child: TextButton.icon(
+                                    onPressed: () {
+                                      _setPageState(() {
+                                        _detailCardVisibleCounts[cardKey] =
+                                            visibleCount +
+                                            resourceVersionPageSize;
+                                      });
+                                    },
+                                    icon: const Icon(
+                                      Icons.expand_more_rounded,
+                                      size: 17,
+                                    ),
+                                    label: Text(
+                                      '加载更多文件'
+                                      '（${count - shown.length} 个剩余）',
+                                    ),
                                   ),
-                                )
-                                .toList(),
+                                ),
+                              ],
+                            ],
                           ),
                   )
                 : const SizedBox.shrink(),
@@ -470,6 +532,12 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
       ),
     );
   }
+
+  String _detailVersionCardKey(
+    String family,
+    String gameVersion,
+    String? loaderKey,
+  ) => '$family|$gameVersion|${loaderKey ?? allResourceLoaderKey}';
 
   String _versionTypeLabel(String versionType) => switch (versionType) {
     'release' => '正式版',
@@ -579,6 +647,10 @@ extension _ResourceDetailWidgets on _ResourceDownloadsPageState {
   }
 
   Widget _buildResourceVersionContent(ModrinthProject project) {
+    if (_detailCardVisibleProjectId != project.id) {
+      _detailCardVisibleProjectId = project.id;
+      _detailCardVisibleCounts.clear();
+    }
     final isMod = project.category == DownloadCategory.mods;
     final projectLoaders = _projectLoaderKeys(project);
     final allGameVersions = _projectGameVersions(

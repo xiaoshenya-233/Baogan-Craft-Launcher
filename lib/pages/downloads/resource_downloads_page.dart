@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../services/download/download_service.dart';
 import '../../services/installer/version_models.dart';
 import '../../services/network/api_service.dart';
 import '../../services/translation/database_service.dart';
-import '../../widgets/download/active_download_banner.dart';
+import '../../widgets/launcher/activity_banner.dart';
 import '../../widgets/localized_mod_title.dart';
 import '../../widgets/launcher/launcher_common.dart';
 import '../launcher/controllers/download_activity_controller.dart';
@@ -76,9 +75,15 @@ class _ResourceDownloadsPageState extends State<ResourceDownloadsPage> {
     '资源分类': GlobalKey(debugLabel: '资源分类'),
     '资源搜索': GlobalKey(debugLabel: '资源搜索'),
   };
-  DownloadManager get _downloadManager => activity.manager;
+
+  /// Number of files currently revealed inside each expanded detail card.
+  ///
+  /// This is deliberately local to the detail page: opening a card only reveals
+  /// the first 20 rows, and the card's own footer reveals the next 20. There is
+  /// no page-level "load more" state anymore.
+  final Map<String, int> _detailCardVisibleCounts = <String, int>{};
+  String? _detailCardVisibleProjectId;
   String? get _activeDownloadTask => activity.activeTask;
-  bool get _canCancelActiveDownload => activity.canCancel;
   DownloadCategory get _downloadCategory => resource.category;
   set _downloadCategory(DownloadCategory value) => resource.category = value;
   ResourceSource get _resourceSource => resource.source;
@@ -159,23 +164,8 @@ class _ResourceDownloadsPageState extends State<ResourceDownloadsPage> {
     return TranslucentButtonSurface(radius: radius, child: button);
   }
 
-  Widget _buildActiveDownloadBanner() {
-    final task = _activeDownloadTask;
-    if (task == null) return const SizedBox.shrink();
-    return ActiveDownloadBanner(
-      manager: _downloadManager,
-      task: task,
-      canCancel: _canCancelActiveDownload,
-      onTap: _openDownloadTasks,
-      onCancel: _cancelActiveDownload,
-      surfaceColor: _selectedSurfaceColor,
-      panelBorderColor: _panelBorderColor,
-      buttonForegroundColor: _buttonForeground,
-      selectedForegroundColor: _selectedForegroundColor,
-      mutedColor: _muted,
-      accentColor: palette.uiColors.accent,
-    );
-  }
+  Widget _buildActiveDownloadBanner() =>
+      ActivityBanner(onOpenDownloads: _openDownloadTasks);
 
   Widget _buildVersionEmptyState({
     required IconData icon,
@@ -222,7 +212,6 @@ class _ResourceDownloadsPageState extends State<ResourceDownloadsPage> {
     ModrinthVersion version,
   ) => widget.onToggleVersionCandidate(project, version);
   void _changeResourcePage(int page) => resource.loadNextPage(page);
-  void _cancelActiveDownload() => widget.onCancelActiveDownload();
   void _openDownloadTasks() => widget.onOpenDownloadTasks();
 
   @override
@@ -275,20 +264,54 @@ class _ResourceDownloadsPageState extends State<ResourceDownloadsPage> {
                           runSpacing: 8,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                          Text(
-                            '资源来源',
-                            style: TextStyle(fontSize: 11, color: _muted),
-                          ),
-                          ...ResourceSource.values.map((source) {
-                            final selected = _resourceSource == source;
+                            Text(
+                              '资源来源',
+                              style: TextStyle(fontSize: 11, color: _muted),
+                            ),
+                            ...ResourceSource.values.map((source) {
+                              final selected = _resourceSource == source;
+                              return _translucentButton(
+                                ChoiceChip(
+                                  label: Text(source.label),
+                                  selected: selected,
+                                  onSelected: (_) {
+                                    if (_resourceSource == source) return;
+                                    _setPageState(() {
+                                      _resourceSource = source;
+                                      _resourcePage = 0;
+                                    });
+                                    _loadResourceResults();
+                                  },
+                                  selectedColor: _selectedSurfaceColor,
+                                  labelStyle: TextStyle(
+                                    fontSize: 12,
+                                    color: selected
+                                        ? _selectedForegroundColor
+                                        : _muted,
+                                  ),
+                                  showCheckmark: false,
+                                ),
+                                radius: 22,
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      KeyedSubtree(
+                        key: _sectionKeys['资源分类'],
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: DownloadCategory.values.map((category) {
+                            final selected = _downloadCategory == category;
                             return _translucentButton(
                               ChoiceChip(
-                                label: Text(source.label),
+                                label: Text(category.label),
                                 selected: selected,
                                 onSelected: (_) {
-                                  if (_resourceSource == source) return;
                                   _setPageState(() {
-                                    _resourceSource = source;
+                                    _downloadCategory = category;
                                     _resourcePage = 0;
                                   });
                                   _loadResourceResults();
@@ -304,77 +327,46 @@ class _ResourceDownloadsPageState extends State<ResourceDownloadsPage> {
                               ),
                               radius: 22,
                             );
-                          }),
-                        ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      KeyedSubtree(
-                        key: _sectionKeys['资源分类'],
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: DownloadCategory.values.map((category) {
-                          final selected = _downloadCategory == category;
-                          return _translucentButton(
-                            ChoiceChip(
-                              label: Text(category.label),
-                              selected: selected,
-                              onSelected: (_) {
-                                _setPageState(() {
-                                  _downloadCategory = category;
-                                  _resourcePage = 0;
-                                });
-                                _loadResourceResults();
-                              },
-                              selectedColor: _selectedSurfaceColor,
-                              labelStyle: TextStyle(
-                                fontSize: 12,
-                                color: selected
-                                    ? _selectedForegroundColor
-                                    : _muted,
-                              ),
-                              showCheckmark: false,
-                            ),
-                            radius: 22,
-                          );
-                        }).toList(),
+                          }).toList(),
                         ),
                       ),
                       const SizedBox(height: 14),
                       KeyedSubtree(
                         key: _sectionKeys['资源搜索'],
                         child: TextField(
-                        key: const ValueKey('modrinth-search'),
-                        controller: _resourceSearchController,
-                        onChanged: (value) {
-                          _setPageState(() {
-                            resource.searchQuery = value;
-                            _resourcePage = 0;
-                          });
-                          _scheduleResourceSearch();
-                        },
-                        onSubmitted: (_) => _loadResourceResults(),
-                        decoration: InputDecoration(
-                          hintText: _downloadCategory == DownloadCategory.mods
-                              ? '搜索 $_resourceSourceDisplayLabel 模组'
-                              : '搜索 $_resourceSourceDisplayLabel 资源',
-                          prefixIcon: Icon(Icons.search_rounded, color: _muted),
-                          suffixIcon: IconButton(
-                            tooltip: '搜索',
-                            onPressed: _loadResourceResults,
-                            icon: Icon(
-                              Icons.arrow_forward_rounded,
-                              color: _green,
+                          key: const ValueKey('modrinth-search'),
+                          controller: _resourceSearchController,
+                          onChanged: (value) {
+                            _setPageState(() {
+                              resource.searchQuery = value;
+                              _resourcePage = 0;
+                            });
+                            _scheduleResourceSearch();
+                          },
+                          onSubmitted: (_) => _loadResourceResults(),
+                          decoration: InputDecoration(
+                            hintText: _downloadCategory == DownloadCategory.mods
+                                ? '搜索 $_resourceSourceDisplayLabel 模组'
+                                : '搜索 $_resourceSourceDisplayLabel 资源',
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: _muted,
+                            ),
+                            suffixIcon: IconButton(
+                              tooltip: '搜索',
+                              onPressed: _loadResourceResults,
+                              icon: Icon(
+                                Icons.arrow_forward_rounded,
+                                color: _green,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: _panelColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(11),
+                              borderSide: BorderSide.none,
                             ),
                           ),
-                          filled: true,
-                          fillColor: _panelColor,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(11),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -406,7 +398,11 @@ class _ResourceDownloadsPageState extends State<ResourceDownloadsPage> {
                           description: '调整搜索词或切换资源分类后重试。',
                         )
                       else
-                        ...visibleProjects.map(_buildModrinthProjectCard),
+                        ...visibleProjects.map(
+                          (project) => RepaintBoundary(
+                            child: _buildModrinthProjectCard(project),
+                          ),
+                        ),
                       if (!_isLoadingResources &&
                           _resourceLoadError == null &&
                           _resourceResults.isNotEmpty) ...[

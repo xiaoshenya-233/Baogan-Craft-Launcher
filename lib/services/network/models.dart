@@ -96,7 +96,6 @@ List<String> apiInferMinecraftVersions(String text) {
   return versions;
 }
 
-
 class MinecraftCatalogVersion {
   const MinecraftCatalogVersion({
     required this.id,
@@ -108,7 +107,6 @@ class MinecraftCatalogVersion {
   final String type;
   final String? releaseTime;
 }
-
 
 enum DownloadCategory {
   mods('模组', 'mod', 'mods'),
@@ -205,6 +203,8 @@ class ModrinthProject {
     this.iconUrl,
     this.source = ResourceSource.modrinth,
     this.chineseTitle,
+    this.supportedGameVersions = const <String>[],
+    this.supportedLoaders = const <String>[],
   });
 
   final String id;
@@ -219,6 +219,11 @@ class ModrinthProject {
   final List<String> tags;
   final ResourceSource source;
 
+  /// Project-level metadata from search/detail responses. This lets the picker
+  /// show every supported major version without downloading every file page.
+  final List<String> supportedGameVersions;
+  final List<String> supportedLoaders;
+
   ModrinthProject withVersions(List<ModrinthVersion> updatedVersions) {
     return ModrinthProject(
       id: id,
@@ -232,6 +237,8 @@ class ModrinthProject {
       iconUrl: iconUrl,
       source: source,
       chineseTitle: chineseTitle,
+      supportedGameVersions: supportedGameVersions,
+      supportedLoaders: supportedLoaders,
     );
   }
 
@@ -251,6 +258,8 @@ class ModrinthProject {
       chineseTitle: normalized == null || normalized.isEmpty
           ? chineseTitle
           : normalized,
+      supportedGameVersions: supportedGameVersions,
+      supportedLoaders: supportedLoaders,
     );
   }
 
@@ -497,9 +506,31 @@ class ManagedMod {
   final bool enabled;
 }
 
+const String mcimApiHost = 'mod.mcimirror.top';
+const String mcimCurseForgeBase = 'https://mod.mcimirror.top/curseforge';
+const String mcimModrinthBase = 'https://mod.mcimirror.top/modrinth';
+const int resourceVersionPageSize = 20;
+
+/// Rewrites absolute CDN URLs returned by MCIM into the mirror host.
+///
+/// `mediafilez.forgecdn.net` is deliberately preserved: MCIM does not serve
+/// that host, so replacing it would produce a broken download URL.
+String mcimMirrorUrl(String url) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return url;
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null) return url;
+  final host = uri.host.toLowerCase();
+  if (host != 'cdn.modrinth.com' && host != 'edge.forgecdn.net') {
+    return url;
+  }
+  return uri.replace(scheme: 'https', host: mcimApiHost).toString();
+}
+
 bool isTrustedResourceHost(Uri uri) {
   final host = uri.host.toLowerCase();
-  return host == 'modrinth.com' ||
+  return host == mcimApiHost ||
+      host == 'modrinth.com' ||
       host.endsWith('.modrinth.com') ||
       host == 'forgecdn.net' ||
       host.endsWith('.forgecdn.net') ||

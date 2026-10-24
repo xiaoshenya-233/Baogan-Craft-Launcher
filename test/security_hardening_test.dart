@@ -24,7 +24,9 @@ void main() {
 
     test('rejects parents and escaped paths', () {
       final separator = Platform.pathSeparator;
-      final escaped = '${root.path}$separator..$separator..$separator' 'escape';
+      final escaped =
+          '${root.path}$separator..$separator..$separator'
+          'escape';
       expect(isPathInside(escaped, root.path), isFalse);
       expect(isPathInside(root.parent.path, root.path), isFalse);
     });
@@ -44,6 +46,13 @@ void main() {
       expect(redacted, contains('refresh_token=***'));
       expect(redacted, contains('client_secret=***'));
       expect(redacted, contains('--accessToken ***'));
+    });
+
+    test('masks player UUIDs', () {
+      const uuid = '123e4567-e89b-12d3-a456-426614174000';
+      final redacted = redactLogSecrets('account=microsoft:$uuid');
+      expect(redacted, isNot(contains(uuid)));
+      expect(redacted, contains('microsoft:***'));
     });
 
     test('keeps ordinary log text untouched', () {

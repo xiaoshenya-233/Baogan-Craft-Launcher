@@ -7,7 +7,7 @@ import '../../../widgets/launcher/launcher_common.dart';
 /// Public metadata shown in the about dialog.
 const String launcherRepoUrl =
     'https://github.com/xiaoshenya-233/Baogan-Craft-Launcher';
-const String launcherVersion = '26.1alpha1.1';
+const String launcherVersion = '26.1alpha2';
 
 class _CreditEntry {
   const _CreditEntry(this.name, this.description, this.icon);
@@ -23,11 +23,7 @@ final List<_CreditEntry> _credits = <_CreditEntry>[
     (l10n) => l10n.aboutCreditsPcl,
     Icons.auto_awesome_rounded,
   ),
-  _CreditEntry(
-    'HMCL',
-    (l10n) => l10n.aboutCreditsHmcl,
-    Icons.memory_rounded,
-  ),
+  _CreditEntry('HMCL', (l10n) => l10n.aboutCreditsHmcl, Icons.memory_rounded),
   _CreditEntry(
     'XMCL',
     (l10n) => l10n.aboutCreditsXmcl,
@@ -135,11 +131,19 @@ class AboutLauncherDialog extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _sectionTitle(scheme, Icons.gavel_rounded, l10n.aboutLicenseTitle),
+                    _sectionTitle(
+                      scheme,
+                      Icons.gavel_rounded,
+                      l10n.aboutLicenseTitle,
+                    ),
                     const SizedBox(height: 8),
                     _buildLicenceCard(scheme, l10n),
                     const SizedBox(height: 18),
-                    _sectionTitle(scheme, Icons.code_rounded, l10n.aboutRepoButton),
+                    _sectionTitle(
+                      scheme,
+                      Icons.code_rounded,
+                      l10n.aboutRepoButton,
+                    ),
                     const SizedBox(height: 8),
                     _buildRepositoryLink(context, scheme),
                     const SizedBox(height: 18),
@@ -234,11 +238,7 @@ class AboutLauncherDialog extends StatelessWidget {
                 style: TextStyle(fontSize: 11.5, color: scheme.primary),
               ),
             ),
-            Icon(
-              Icons.open_in_new_rounded,
-              size: 15,
-              color: scheme.primary,
-            ),
+            Icon(Icons.open_in_new_rounded, size: 15, color: scheme.primary),
           ],
         ),
       ),

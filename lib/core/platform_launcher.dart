@@ -16,4 +16,18 @@ class PlatformLauncher {
       mode: ProcessStartMode.detached,
     );
   }
+
+  /// Opens [path] with the platform file manager (Explorer / Finder / xdg-open).
+  static Future<void> openPath(String path) async {
+    final command = switch (Platform.operatingSystem) {
+      'windows' => ('explorer.exe', [path]),
+      'macos' => ('open', [path]),
+      _ => ('xdg-open', [path]),
+    };
+    await Process.start(
+      command.$1,
+      command.$2,
+      mode: ProcessStartMode.detached,
+    );
+  }
 }

@@ -1021,4 +1021,137 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonUnknownVersion => 'Unknown version';
+
+  @override
+  String get pluginsTitle => 'Plugin Center';
+
+  @override
+  String get pluginsSubtitle =>
+      'Browse installed plugins and open their JSON UI.';
+
+  @override
+  String get pluginsEmpty =>
+      'No plugins installed yet. Drop a plugin into BGCL/plugins and refresh.';
+
+  @override
+  String get pluginsRefresh => 'Refresh plugin list';
+
+  @override
+  String get pluginOpenFolder => 'Open plugin folder';
+
+  @override
+  String get pluginFolderUnavailable =>
+      'The plugin folder is not ready. Finish launcher setup first.';
+
+  @override
+  String pluginsLoadFailed(String error) {
+    return 'Could not load the plugin: $error';
+  }
+
+  @override
+  String get pluginsNoUi => 'This plugin has no UI document.';
+
+  @override
+  String pluginsVersionAuthor(String version, String author) {
+    return '$version · $author';
+  }
+
+  @override
+  String pluginsPermissions(String permissions) {
+    return 'Permissions: $permissions';
+  }
+
+  @override
+  String get pluginBack => 'Back to plugins';
+
+  @override
+  String get pluginLoading => 'Loading plugin…';
+
+  @override
+  String pluginPermissionDenied(String permission, String action) {
+    return 'Permission denied: the plugin lacks the $permission permission for $action.';
+  }
+
+  @override
+  String pluginActionFailed(String error) {
+    return 'Plugin action failed: $error';
+  }
+
+  @override
+  String pluginActionInvalid(String action) {
+    return 'Unknown or unsupported plugin action: $action';
+  }
+
+  @override
+  String pluginFileSaved(String path) {
+    return 'Saved to the plugin folder: $path';
+  }
+
+  @override
+  String pluginFileRead(String path) {
+    return 'Read: $path';
+  }
+
+  @override
+  String pluginFileDownloaded(String path) {
+    return 'Download complete: $path';
+  }
+
+  @override
+  String get pluginWebviewPermissionDenied =>
+      'Permission denied: the webview node requires the webview permission.';
+
+  @override
+  String pluginWebviewPlaceholder(String url) {
+    return 'Webview: $url (coming in a later version)';
+  }
+
+  @override
+  String get workbenchHubTitle => 'Feature Hub';
+
+  @override
+  String get workbenchHubSubtitle =>
+      'One place for plugins, system monitors and utilities.';
+
+  @override
+  String get workbenchPluginCenterDescription =>
+      'Browse, run and manage installed plugin UIs.';
+
+  @override
+  String get workbenchSystemMonitor => 'System Monitor';
+
+  @override
+  String get workbenchSystemMonitorDescription =>
+      'Check Windows memory and CPU usage.';
+
+  @override
+  String get workbenchSystemMonitorPlaceholder =>
+      'Windows memory and CPU status will appear here.';
+
+  @override
+  String get workbenchNbtViewer => 'NBT Viewer';
+
+  @override
+  String get workbenchNbtViewerDescription =>
+      'Browse and validate save-file NBT data.';
+
+  @override
+  String get workbenchNbtPlaceholder => 'NBT data will be browsable here.';
+
+  @override
+  String get workbenchSaveBackup => 'Save Backup Center';
+
+  @override
+  String get workbenchSaveBackupDescription =>
+      'Back up and restore local world saves in one click';
+
+  @override
+  String get workbenchSaveBackupPlaceholder =>
+      'One-click save archiving will arrive here so your worlds are never lost.';
+
+  @override
+  String get workbenchComingSoon => 'In development';
+
+  @override
+  String get workbenchBack => 'Back to feature hub';
 }

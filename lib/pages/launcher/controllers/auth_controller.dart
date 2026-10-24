@@ -140,6 +140,24 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// Renames an account and refreshes the in-memory list.
+  Future<UserAccount?> renameAccount(String id, String newName) async {
+    try {
+      final updated = await accountManager.updateName(id, newName);
+      if (updated == null) return null;
+      _accounts = <UserAccount>[
+        for (final account in _accounts)
+          if (account.id == id) updated else account,
+      ];
+      if (_currentAccount?.id == id) _currentAccount = updated;
+      notifyListeners();
+      return updated;
+    } on Object catch (error) {
+      onError?.call('重命名账号失败：$error');
+      return null;
+    }
+  }
+
   /// Removes an account from the UI at once and purges its tokens afterwards.
   Future<void> removeAccount(String id) async {
     final remaining = _accounts.where((account) => account.id != id).toList();

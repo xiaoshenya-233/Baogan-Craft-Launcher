@@ -81,6 +81,11 @@ app.*.map.json
 /cache/
 /runtime/
 
+# Plugin runtime data and local configuration
+config.json
+plugins_data/
+build/
+
 # Root-level scratch output from tests / CLI tools
 /*.txt
 !/LICENSE.txt

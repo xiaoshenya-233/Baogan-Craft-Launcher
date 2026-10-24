@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -14,10 +15,14 @@ const int launcherDefaultSunsetMinute = 18 * 60 + 30;
 
 const String _lightWallpaperPathKey = 'lightWallpaperPath';
 const String _darkWallpaperPathKey = 'darkWallpaperPath';
+const String _lightWallpaperPathsKey = 'lightWallpaperPaths';
+const String _darkWallpaperPathsKey = 'darkWallpaperPaths';
 const String _lightWallpaperCropKey = 'lightWallpaperCrop';
 const String _darkWallpaperCropKey = 'darkWallpaperCrop';
 const String _lightWallpaperModeKey = 'lightWallpaperDisplayMode';
 const String _darkWallpaperModeKey = 'darkWallpaperDisplayMode';
+const String _appearanceModeKey = 'launcherAppearanceMode';
+const String _randomWallpaperKey = 'randomWallpaperOnStartup';
 const Rect _fullCrop = Rect.fromLTWH(0, 0, 1, 1);
 
 /// UI language used before the persisted preference is read.
@@ -62,11 +67,14 @@ class AppearanceController extends ChangeNotifier {
   final PreferencesStore _preferences;
 
   String? _lightWallpaperPath;
+  List<String> _lightWallpaperPaths = <String>[];
   Rect _lightWallpaperCrop = const Rect.fromLTWH(0, 0, 1, 1);
   WallpaperDisplayMode _lightWallpaperDisplayMode = WallpaperDisplayMode.cover;
   String? _darkWallpaperPath;
+  List<String> _darkWallpaperPaths = <String>[];
   Rect _darkWallpaperCrop = const Rect.fromLTWH(0, 0, 1, 1);
   WallpaperDisplayMode _darkWallpaperDisplayMode = WallpaperDisplayMode.cover;
+  bool _randomWallpaperOnStartup = false;
   LauncherAppearanceMode _appearanceMode = LauncherAppearanceMode.automatic;
   Locale _locale = launcherDefaultLocale;
   int _sunriseMinute = launcherDefaultSunriseMinute;
@@ -85,6 +93,11 @@ class AppearanceController extends ChangeNotifier {
   String? get solarTimesError => _solarTimesError;
   String? get lightWallpaperPath => _lightWallpaperPath;
   String? get darkWallpaperPath => _darkWallpaperPath;
+  List<String> get lightWallpaperPaths =>
+      List<String>.unmodifiable(_lightWallpaperPaths);
+  List<String> get darkWallpaperPaths =>
+      List<String>.unmodifiable(_darkWallpaperPaths);
+  bool get randomWallpaperOnStartup => _randomWallpaperOnStartup;
   Rect get lightWallpaperCrop => _lightWallpaperCrop;
   Rect get darkWallpaperCrop => _darkWallpaperCrop;
   WallpaperDisplayMode get lightWallpaperDisplayMode =>
@@ -145,6 +158,26 @@ class AppearanceController extends ChangeNotifier {
       if (decoded.isEmpty) return;
       _lightWallpaperPath = _readPath(decoded[_lightWallpaperPathKey]);
       _darkWallpaperPath = _readPath(decoded[_darkWallpaperPathKey]);
+      _lightWallpaperPaths = _readPaths(decoded[_lightWallpaperPathsKey]);
+      _darkWallpaperPaths = _readPaths(decoded[_darkWallpaperPathsKey]);
+      if (_lightWallpaperPath != null &&
+          !_lightWallpaperPaths.contains(_lightWallpaperPath)) {
+        _lightWallpaperPaths.add(_lightWallpaperPath!);
+      }
+      if (_darkWallpaperPath != null &&
+          !_darkWallpaperPaths.contains(_darkWallpaperPath)) {
+        _darkWallpaperPaths.add(_darkWallpaperPath!);
+      }
+      _randomWallpaperOnStartup = decoded[_randomWallpaperKey] == true;
+      final storedMode = decoded[_appearanceModeKey];
+      if (storedMode is String) {
+        for (final mode in LauncherAppearanceMode.values) {
+          if (mode.name == storedMode) {
+            _appearanceMode = mode;
+            break;
+          }
+        }
+      }
       _lightWallpaperCrop = _readCrop(decoded[_lightWallpaperCropKey]);
       _darkWallpaperCrop = _readCrop(decoded[_darkWallpaperCropKey]);
       _lightWallpaperDisplayMode = _readDisplayMode(
@@ -172,6 +205,12 @@ class AppearanceController extends ChangeNotifier {
     );
     unawaited(
       _preferences.write(
+        dark ? _darkWallpaperPathsKey : _lightWallpaperPathsKey,
+        List<String>.from(dark ? _darkWallpaperPaths : _lightWallpaperPaths),
+      ),
+    );
+    unawaited(
+      _preferences.write(
         dark ? _darkWallpaperCropKey : _lightWallpaperCropKey,
         <double>[crop.left, crop.top, crop.right, crop.bottom],
       ),
@@ -186,6 +225,16 @@ class AppearanceController extends ChangeNotifier {
 
   String? _readPath(Object? value) =>
       value is String && value.trim().isNotEmpty ? value : null;
+
+  List<String> _readPaths(Object? value) {
+    if (value is! List) return <String>[];
+    final paths = <String>[];
+    for (final item in value) {
+      final path = _readPath(item);
+      if (path != null && !paths.contains(path)) paths.add(path);
+    }
+    return paths;
+  }
 
   Rect _readCrop(Object? value) {
     if (value is List && value.length == 4) {
@@ -243,6 +292,7 @@ class AppearanceController extends ChangeNotifier {
   void setAppearanceMode(LauncherAppearanceMode mode) {
     _appearanceMode = mode;
     _lastSolarFetch = null;
+    unawaited(_preferences.write(_appearanceModeKey, mode.name));
     applyAppearanceMode();
     notifyListeners();
   }
@@ -347,10 +397,8 @@ class AppearanceController extends ChangeNotifier {
     required Rect crop,
   }) async {
     final storedPath = await _cacheWallpaperFile(path: path, dark: dark);
-    await _deleteCachedWallpaper(
-      dark ? _darkWallpaperPath : _lightWallpaperPath,
-      keepPath: storedPath,
-    );
+    final paths = dark ? _darkWallpaperPaths : _lightWallpaperPaths;
+    if (!paths.contains(storedPath)) paths.add(storedPath);
     if (dark) {
       _darkWallpaperPath = storedPath;
       _darkWallpaperCrop = crop;
@@ -408,7 +456,9 @@ class AppearanceController extends ChangeNotifier {
     final dot = name.lastIndexOf('.');
     if (dot <= 0 || dot == name.length - 1) return '.img';
     final extension = name.substring(dot).toLowerCase();
-    return RegExp(r'^\.[a-z0-9]{1,5}$').hasMatch(extension) ? extension : '.img';
+    return RegExp(r'^\.[a-z0-9]{1,5}$').hasMatch(extension)
+        ? extension
+        : '.img';
   }
 
   bool _isInsideDirectory(String path, String directory) {
@@ -447,18 +497,24 @@ class AppearanceController extends ChangeNotifier {
 
   void resetWallpaper({required bool dark}) {
     final previous = dark ? _darkWallpaperPath : _lightWallpaperPath;
+    final paths = dark ? _darkWallpaperPaths : _lightWallpaperPaths;
+    if (previous != null) paths.remove(previous);
+    final next = paths.firstOrNull;
     if (dark) {
-      _darkWallpaperPath = null;
+      _darkWallpaperPath = next;
       _darkWallpaperCrop = const Rect.fromLTWH(0, 0, 1, 1);
       _darkWallpaperDisplayMode = WallpaperDisplayMode.cover;
     } else {
-      _lightWallpaperPath = null;
+      _lightWallpaperPath = next;
       _lightWallpaperCrop = const Rect.fromLTWH(0, 0, 1, 1);
       _lightWallpaperDisplayMode = WallpaperDisplayMode.cover;
     }
     notifyListeners();
     _persistWallpaper(dark: dark);
-    unawaited(_deleteCachedWallpaper(previous));
+    if (!_lightWallpaperPaths.contains(previous) &&
+        !_darkWallpaperPaths.contains(previous)) {
+      unawaited(_deleteCachedWallpaper(previous));
+    }
   }
 
   String? wallpaperPath(bool dark) =>
@@ -467,6 +523,120 @@ class AppearanceController extends ChangeNotifier {
       dark ? _darkWallpaperCrop : _lightWallpaperCrop;
   WallpaperDisplayMode wallpaperDisplayMode(bool dark) =>
       dark ? _darkWallpaperDisplayMode : _lightWallpaperDisplayMode;
+
+  List<String> wallpaperPaths(bool dark) => List<String>.unmodifiable(
+    dark ? _darkWallpaperPaths : _lightWallpaperPaths,
+  );
+
+  Future<void> selectWallpaper({
+    required bool dark,
+    required String path,
+  }) async {
+    final paths = dark ? _darkWallpaperPaths : _lightWallpaperPaths;
+    if (!paths.contains(path)) return;
+    if (dark) {
+      _darkWallpaperPath = path;
+      _darkWallpaperCrop = _fullCrop;
+    } else {
+      _lightWallpaperPath = path;
+      _lightWallpaperCrop = _fullCrop;
+    }
+    notifyListeners();
+    _persistWallpaper(dark: dark);
+  }
+
+  Future<void> removeWallpaper({
+    required bool dark,
+    required String path,
+  }) async {
+    final paths = dark ? _darkWallpaperPaths : _lightWallpaperPaths;
+    if (!paths.remove(path)) return;
+    final active = dark ? _darkWallpaperPath : _lightWallpaperPath;
+    if (active == path) {
+      final next = paths.firstOrNull;
+      if (dark) {
+        _darkWallpaperPath = next;
+        _darkWallpaperCrop = _fullCrop;
+      } else {
+        _lightWallpaperPath = next;
+        _lightWallpaperCrop = _fullCrop;
+      }
+    }
+    notifyListeners();
+    _persistWallpaper(dark: dark);
+    if (!_lightWallpaperPaths.contains(path) &&
+        !_darkWallpaperPaths.contains(path)) {
+      await _deleteCachedWallpaper(path);
+    }
+  }
+
+  Future<void> setRandomWallpaperOnStartup(bool value) async {
+    if (_randomWallpaperOnStartup == value) return;
+    _randomWallpaperOnStartup = value;
+    notifyListeners();
+    await _preferences.write(_randomWallpaperKey, value);
+  }
+
+  /// Chooses one wallpaper from the active theme's list before the UI starts.
+  ///
+  /// This is called from `main()` so the very first frame already uses the
+  /// selected list entry. It is a no-op unless the player enabled random mode.
+  static Future<void> prepareStartupWallpaper({
+    PreferencesStore? preferences,
+  }) async {
+    try {
+      final store = preferences ?? PreferencesStore();
+      final decoded = await store.readAll();
+      if (decoded[_randomWallpaperKey] != true) return;
+
+      var mode = LauncherAppearanceMode.automatic;
+      final storedMode = decoded[_appearanceModeKey];
+      if (storedMode is String) {
+        for (final candidate in LauncherAppearanceMode.values) {
+          if (candidate.name == storedMode) {
+            mode = candidate;
+            break;
+          }
+        }
+      }
+      final now = DateTime.now();
+      final minutes = now.hour * 60 + now.minute;
+      final useDark = switch (mode) {
+        LauncherAppearanceMode.dark => true,
+        LauncherAppearanceMode.light => false,
+        LauncherAppearanceMode.automatic =>
+          minutes < launcherDefaultSunriseMinute ||
+              minutes >= launcherDefaultSunsetMinute,
+      };
+      final rawPaths =
+          decoded[useDark ? _darkWallpaperPathsKey : _lightWallpaperPathsKey];
+      if (rawPaths is! List) return;
+      final paths = <String>[
+        for (final item in rawPaths)
+          if (item is String &&
+              item.trim().isNotEmpty &&
+              File(item).existsSync())
+            item,
+      ];
+      if (paths.isEmpty) return;
+      final selected = paths[math.Random().nextInt(paths.length)];
+      await store.write(
+        useDark ? _darkWallpaperPathKey : _lightWallpaperPathKey,
+        selected,
+      );
+      await store.write(
+        useDark ? _darkWallpaperCropKey : _lightWallpaperCropKey,
+        <double>[
+          _fullCrop.left,
+          _fullCrop.top,
+          _fullCrop.right,
+          _fullCrop.bottom,
+        ],
+      );
+    } on Object {
+      // Random wallpaper is cosmetic; startup must continue on any failure.
+    }
+  }
 
   String formatMinutes(int minutes) =>
       '${(minutes ~/ 60).toString().padLeft(2, '0')}:'

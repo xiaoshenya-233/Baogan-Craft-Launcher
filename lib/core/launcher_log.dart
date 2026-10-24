@@ -64,6 +64,14 @@ String redactLogSecrets(String value) {
     RegExp(r'eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}'),
     '***',
   );
+  // Player UUIDs identify an account; never write them to the log file.
+  result = result.replaceAll(
+    RegExp(
+      r'\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+      r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b',
+    ),
+    '***',
+  );
   return result;
 }
 
