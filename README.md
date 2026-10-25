@@ -8,7 +8,7 @@
 为响应相关法律法规，暂时不提供客户端下载服务，如果想使用此功能，请确保你在国外网络环境下运行。
 
 ## 插件系统Github仓库
-我们在26.1Alpha2.1中新增插件功能，插件将由https://github.com/xiaoshenya-233/Baogan-Craft-Launcher-Plugin-Center提供
+我们在26.1Alpha2.1中新增插件功能，插件将由https://github.com/xiaoshenya-233/Baogan-Craft-Launcher-Plugin-Center 提供
 
 ## 运行
 
