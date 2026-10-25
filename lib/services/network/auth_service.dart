@@ -13,6 +13,28 @@ enum AuthMode {
   final String label;
 }
 
+/// Builds the conventional Yggdrasil avatar endpoint.
+///
+/// LittleSkin and several other providers expose avatars at the site origin
+/// (`https://host/avatar/<uuid>`) while their Yggdrasil API lives under
+/// `/api/yggdrasil`, so that common suffix is normalized to the origin.
+String thirdPartyAvatarUrl(String server, String uuid, {String? playerName}) {
+  final base = server.trim().replaceFirst(RegExp(r'/$'), '');
+  final parsed = Uri.tryParse(base);
+  final name = playerName?.trim();
+  final encodedUuid = Uri.encodeComponent(uuid);
+  if (parsed != null &&
+      parsed.hasScheme &&
+      parsed.path.endsWith('/api/yggdrasil') &&
+      name != null &&
+      name.isNotEmpty) {
+    // Blessing Skin (LittleSkin) exposes rendered avatars by player name.
+    return '${parsed.scheme}://${parsed.authority}/avatar/player/'
+        '${Uri.encodeComponent(name)}';
+  }
+  return '$base/avatar/$encodedUuid';
+}
+
 /// Identity passed to [MinecraftLaunchService] when building launch arguments.
 class AuthIdentity {
   const AuthIdentity({
@@ -22,6 +44,7 @@ class AuthIdentity {
     required this.userType,
     this.xuid = '',
     this.javaAgent,
+    this.avatarUrl,
   });
 
   final String name;
@@ -30,6 +53,9 @@ class AuthIdentity {
   final String userType;
   final String xuid;
   final String? javaAgent;
+
+  /// Optional custom avatar URL returned by a third-party provider.
+  final String? avatarUrl;
 }
 
 /// Values collected by the generic launch setup dialog.
@@ -384,13 +410,61 @@ class MinecraftAuthService {
         selectedProfile['name'] is! String) {
       throw const FormatException('认证服务未返回有效的 Minecraft 玩家档案。');
     }
+    final uuid = selectedProfile['id'] as String;
+    final profileName = selectedProfile['name'] as String;
     return AuthIdentity(
-      name: selectedProfile['name'] as String,
-      uuid: selectedProfile['id'] as String,
+      name: profileName,
+      uuid: uuid,
       accessToken: response['accessToken'] as String,
       userType: 'mojang',
       javaAgent: '$agentPath=${request.server}',
+      avatarUrl: _thirdPartyAvatarUrl(
+        selectedProfile,
+        response,
+        request.server,
+        uuid,
+        profileName,
+      ),
     );
+  }
+
+  /// Prefers an avatar URL supplied by the provider, otherwise builds the
+  /// conventional provider avatar endpoint. Blessing Skin servers expose
+  /// rendered avatars at `<origin>/avatar/player/<name>`.
+  String _thirdPartyAvatarUrl(
+    Map<String, dynamic> profile,
+    Map<String, dynamic> response,
+    String server,
+    String uuid,
+    String playerName,
+  ) {
+    for (final source in <Map<String, dynamic>>[profile, response]) {
+      for (final key in const <String>['avatar', 'avatarUrl']) {
+        final candidate = _absoluteAvatarUrl(source[key], server);
+        if (candidate != null) return candidate;
+      }
+    }
+    final base = server.trim().replaceFirst(RegExp(r'/$'), '');
+    return thirdPartyAvatarUrl(base, uuid, playerName: playerName);
+  }
+
+  String? _absoluteAvatarUrl(Object? raw, String server) {
+    if (raw is! String) return null;
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    final parsed = Uri.tryParse(value);
+    if (parsed == null) return null;
+    if (parsed.hasScheme) {
+      return parsed.scheme == 'http' || parsed.scheme == 'https'
+          ? parsed.toString()
+          : null;
+    }
+    final base = Uri.tryParse(server);
+    if (base == null || !base.hasScheme) return null;
+    final resolved = base.resolve(value);
+    return resolved.scheme == 'http' || resolved.scheme == 'https'
+        ? resolved.toString()
+        : null;
   }
 }
 

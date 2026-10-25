@@ -7,7 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:baogan_craft_launcher/core/launcher_log.dart';
+import 'package:baogan_craft_launcher/l10n/app_localizations.dart';
 import 'package:baogan_craft_launcher/main.dart';
+import 'package:baogan_craft_launcher/pages/launcher/launcher_top_bar.dart';
+import 'package:window_manager/window_manager.dart';
 
 Future<void> _finishPageTransition(WidgetTester tester) async {
   await tester.pump();
@@ -22,6 +25,53 @@ void main() {
     final manifest = await rootBundle.loadString('FontManifest.json');
     expect(manifest, contains('SourceHanSansSC'));
     expect(manifest, contains('assets/fonts/SourceHanSansSC-Regular.otf'));
+  });
+
+  testWidgets('top bar drag area excludes window controls', (tester) async {
+    var closed = 0;
+    var toggles = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: LauncherTopBar(
+            activityBanner: const SizedBox(width: 100, height: 40),
+            isDark: false,
+            isMaximized: false,
+            onToggleMaximize: () async {
+              toggles++;
+            },
+            onMinimize: () async {},
+            onClose: () async {
+              closed++;
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(DragToMoveArea), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(DragToMoveArea),
+        matching: find.byIcon(Icons.close_rounded),
+      ),
+      findsNothing,
+    );
+    expect(find.byIcon(Icons.minimize_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.crop_square_rounded), findsOneWidget);
+
+    await tester.tap(find.text('Baogan Craft Launcher'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Baogan Craft Launcher'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(toggles, 1);
+
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pump();
+    expect(closed, 1);
   });
 
   test('client names and download cancellation helpers enforce safety', () {

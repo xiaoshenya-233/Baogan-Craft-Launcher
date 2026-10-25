@@ -102,21 +102,105 @@ void main() {
     expect(AuthMode.thirdParty.name, 'thirdParty');
   });
 
-  test('local profile login stays offline and never reuses a real token', () async {
-    final directory = await Directory.systemTemp.createTemp('offline_profile');
+  test(
+    'local profile login stays offline and never reuses a real token',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'offline_profile',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final service = MinecraftAuthService(
+        minecraftPath: directory.path,
+        httpClient: const _NetworkBlockingAuthClient(),
+      );
+
+      final identity = await service.authenticateOffline('LocalPlayer');
+
+      expect(identity.name, 'LocalPlayer');
+      expect(identity.uuid, OfflineProfileStore.uuidForName('LocalPlayer'));
+      expect(identity.accessToken, '0');
+      expect(identity.userType, 'legacy');
+      expect(identity.xuid, isEmpty);
+    },
+  );
+  test('third-party avatar ignores raw skin textures', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'third_party_avatar_',
+    );
     addTearDown(() => directory.delete(recursive: true));
+    final agent = File('${directory.path}${Platform.pathSeparator}agent.jar');
+    await agent.writeAsBytes(<int>[0]);
     final service = MinecraftAuthService(
       minecraftPath: directory.path,
-      httpClient: const _NetworkBlockingAuthClient(),
+      httpClient: const _StaticAuthClient(<String, dynamic>{
+        'accessToken': 'token',
+        'selectedProfile': <String, dynamic>{
+          'id': 'uuid-player',
+          'name': 'Alex',
+          'textures': <String, dynamic>{
+            'SKIN': <String, dynamic>{
+              'url': 'https://cdn.example.com/avatar.png',
+            },
+          },
+        },
+      }),
     );
 
-    final identity = await service.authenticateOffline('LocalPlayer');
+    final identity = await service.authenticateThirdParty(
+      request: const ThirdPartyAuthRequest(
+        server: 'https://example.com/api/yggdrasil',
+        username: 'alex',
+        password: 'secret',
+      ),
+      agentPath: agent.path,
+    );
 
-    expect(identity.name, 'LocalPlayer');
-    expect(identity.uuid, OfflineProfileStore.uuidForName('LocalPlayer'));
-    expect(identity.accessToken, '0');
-    expect(identity.userType, 'legacy');
-    expect(identity.xuid, isEmpty);
+    expect(identity.avatarUrl, 'https://example.com/avatar/player/Alex');
+  });
+
+  test('third-party avatar falls back to rendered player endpoint', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'third_party_avatar_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final agent = File('${directory.path}${Platform.pathSeparator}agent.jar');
+    await agent.writeAsBytes(<int>[0]);
+    final service = MinecraftAuthService(
+      minecraftPath: directory.path,
+      httpClient: const _StaticAuthClient(<String, dynamic>{
+        'accessToken': 'token',
+        'selectedProfile': <String, dynamic>{
+          'id': 'uuid-player',
+          'name': 'Alex',
+        },
+      }),
+    );
+
+    final identity = await service.authenticateThirdParty(
+      request: const ThirdPartyAuthRequest(
+        server: 'https://example.com/api/yggdrasil',
+        username: 'alex',
+        password: 'secret',
+      ),
+      agentPath: agent.path,
+    );
+
+    expect(identity.avatarUrl, 'https://example.com/avatar/player/Alex');
+  });
+
+  test('third-party avatar endpoint normalizes Yggdrasil API bases', () {
+    expect(
+      thirdPartyAvatarUrl(
+        'https://littleskin.cn/api/yggdrasil',
+        'uuid-player',
+        playerName: 'Alex',
+      ),
+      'https://littleskin.cn/avatar/player/Alex',
+    );
+    expect(
+      thirdPartyAvatarUrl('https://example.com/custom', 'uuid-player'),
+      'https://example.com/custom/avatar/uuid-player',
+    );
   });
 }
 
@@ -135,4 +219,20 @@ class _NetworkBlockingAuthClient extends AuthHttpClient {
   }) {
     fail('local profile login must not reach the network: $uri');
   }
+}
+
+class _StaticAuthClient extends AuthHttpClient {
+  const _StaticAuthClient(this.payload);
+
+  final Map<String, dynamic> payload;
+
+  @override
+  Future<Map<String, dynamic>> requestJson(
+    Uri uri, {
+    String method = 'GET',
+    Map<String, dynamic>? body,
+    Map<String, String>? form,
+    String? bearerToken,
+    bool acceptOAuthPending = false,
+  }) async => payload;
 }

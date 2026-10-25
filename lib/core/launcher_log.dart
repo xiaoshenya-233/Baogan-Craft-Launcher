@@ -30,6 +30,13 @@ String? debugLogWindowPathFromArgs(List<String> args) {
   return null;
 }
 
+/// Masks an identifier while retaining only a tiny, non-reversible hint.
+String _maskLogIdentifier(String value) {
+  if (value.isEmpty || value.contains('***')) return value;
+  final visible = value.length >= 6 ? 2 : 1;
+  return '${value.substring(0, visible)}***';
+}
+
 /// Removes credentials that may appear in launch commands and game output.
 String redactLogSecrets(String value) {
   var result = value;
@@ -72,7 +79,43 @@ String redactLogSecrets(String value) {
     ),
     '***',
   );
+  // Some providers (e.g. LittleSkin) use compact 32-character UUIDs.
+  result = result.replaceAll(RegExp(r'\b[0-9a-fA-F]{32}\b'), '***');
+  // Avatar/profile URLs often embed the player name or UUID. Keep only a tiny
+  // prefix so the log can identify the endpoint without identifying the player.
+  result = result.replaceAllMapped(
+    RegExp(
+      r'(/(?:avatar/player|avatar|textures|profiles|'
+      r'sessionserver/session/minecraft/profile)/)([^/?#\s]+)',
+      caseSensitive: false,
+    ),
+    (match) => '${match[1]}${_maskLogIdentifier(match[2]!)}',
+  );
+  result = result.replaceAllMapped(
+    RegExp(
+      r'((?:username|player[_-]?name|profile[_-]?name)\s*[=:]\s*)'
+      r'([^\s&,;]+)',
+      caseSensitive: false,
+    ),
+    (match) => '${match[1]}${_maskLogIdentifier(match[2]!)}',
+  );
   return result;
+}
+
+/// Rewrites a legacy log file after masking secrets. Returns whether it changed.
+Future<bool> sanitizeLogFileSecrets(File file) async {
+  try {
+    if (!await file.exists()) return false;
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) return false;
+    final content = utf8.decode(bytes, allowMalformed: true);
+    final safe = redactLogSecrets(content);
+    if (safe == content) return false;
+    await file.writeAsString(safe, flush: true);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 /// Reads the tail of a UTF-8 log file without keeping the whole file in memory.
@@ -105,6 +148,8 @@ Future<({String content, bool truncated})> readLogTail(
         '…（仅显示日志末尾 ${formatByteSize(start)} 之后的 '
         '${formatByteSize(length - start)}）\n$content';
   }
+  // Logs written by older builds may predate write-side redaction.
+  content = redactLogSecrets(content);
   return (content: content, truncated: truncated);
 }
 
@@ -154,10 +199,12 @@ class LauncherLog {
           final previous = File('${file.path}.1');
           if (await previous.exists()) await previous.delete();
           await file.rename(previous.path);
+          await sanitizeLogFileSecrets(previous);
         }
       } on FileSystemException {
         // 旧日志窗口或杀毒软件可能暂时占用文件；继续追加而不是关闭日志。
       }
+      await sanitizeLogFileSecrets(file);
       _file = file;
       if (_enabled) info('App', '调试日志已初始化：${file.path}');
       return file.path;

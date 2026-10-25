@@ -55,7 +55,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get setupSubtitle => '首次启动必须完成目录设置，配置完成前不会创建日志、数据库或缓存文件。';
 
   @override
-  String get setupDirectoryExampleTitle => '例如选择 E:\\Games 后，将创建：';
+  String get setupDirectoryExampleTitle => '例如选择游戏目录后，将创建：';
 
   @override
   String get setupInvalidDirectory => '必须选择一个有效的启动器根目录才能继续。';
@@ -74,7 +74,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get setupPathHint => '例如 E:\\Games';
+  String get setupPathHint => '例如 Games';
 
   @override
   String get setupUseThisFolder => '使用此目录';
@@ -563,8 +563,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get javaDialogHint => '填写 java.exe 的完整路径；仅加入列表，不会自动设为默认。';
 
   @override
-  String get javaPathExample =>
-      '例如 C:\\Program Files\\Java\\jdk-17\\bin\\java.exe';
+  String get javaPathExample => '例如 Java安装目录\\bin\\java.exe';
 
   @override
   String get javaDetecting => '检测中…';

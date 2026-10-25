@@ -179,8 +179,8 @@ class _LauncherSetupPageState extends State<LauncherSetupPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            'E:\\Games\\Baogan Craft Launcher\\BGCL\n'
-            'E:\\Games\\Baogan Craft Launcher\\.minecraft',
+            '所选目录\\Baogan Craft Launcher\\BGCL\n'
+            '所选目录\\Baogan Craft Launcher\\.minecraft',
             style: TextStyle(
               fontSize: 12,
               height: 1.7,

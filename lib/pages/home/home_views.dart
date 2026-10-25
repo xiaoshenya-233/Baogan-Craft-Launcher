@@ -173,6 +173,34 @@ extension _HomeViewActions on _LauncherHomePageState {
           AuthMode.microsoft => Icons.account_circle_outlined,
           AuthMode.thirdParty => Icons.dns_outlined,
         };
+        final avatarUrl = account?.effectiveAvatarUrl;
+        final fallbackAvatar = Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: _panelAccentColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 19, color: _LauncherHomePageState._green),
+        );
+        final avatar = avatarUrl == null || avatarUrl.isEmpty
+            ? fallbackAvatar
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  avatarUrl,
+                  key: ValueKey<String>(
+                    'home-account-avatar-${account?.id ?? 'none'}',
+                  ),
+                  width: 38,
+                  height: 38,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.none,
+                  errorBuilder: (_, _, _) => fallbackAvatar,
+                  loadingBuilder: (context, child, progress) =>
+                      progress == null ? child : fallbackAvatar,
+                ),
+              );
         return Material(
           color: _panelColor,
           borderRadius: BorderRadius.circular(12),
@@ -188,19 +216,7 @@ extension _HomeViewActions on _LauncherHomePageState {
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: _panelAccentColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      icon,
-                      size: 19,
-                      color: _LauncherHomePageState._green,
-                    ),
-                  ),
+                  avatar,
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(

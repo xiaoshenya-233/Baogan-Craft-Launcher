@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../widgets/launcher/launcher_common.dart';
@@ -12,7 +13,6 @@ class LauncherTopBar extends StatelessWidget {
     required this.activityBanner,
     required this.isDark,
     required this.isMaximized,
-    required this.onStartDrag,
     required this.onToggleMaximize,
     required this.onMinimize,
     required this.onClose,
@@ -21,7 +21,6 @@ class LauncherTopBar extends StatelessWidget {
   final Widget? activityBanner;
   final bool isDark;
   final bool isMaximized;
-  final Future<void> Function() onStartDrag;
   final Future<void> Function() onToggleMaximize;
   final Future<void> Function() onMinimize;
   final Future<void> Function() onClose;
@@ -50,33 +49,38 @@ class LauncherTopBar extends StatelessWidget {
             ),
             child: Row(
               children: [
-                GestureDetector(
-                  onPanStart: (_) => unawaited(onStartDrag()),
-                  onDoubleTap: () => unawaited(onToggleMaximize()),
-                  child: const BlockLogo(),
-                ),
-                const SizedBox(width: 13),
-                GestureDetector(
-                  onPanStart: (_) => unawaited(onStartDrag()),
-                  onDoubleTap: () => unawaited(onToggleMaximize()),
-                  child: Text(
-                    'Baogan Craft Launcher',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.6,
-                      color: dark ? Colors.white : const Color(0xFF26351F),
+                Expanded(
+                  child: DragToMoveArea(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onDoubleTap: () => unawaited(onToggleMaximize()),
+                      child: Row(
+                        children: [
+                          const BlockLogo(),
+                          const SizedBox(width: 13),
+                          Flexible(
+                            child: Text(
+                              'Baogan Craft Launcher',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.6,
+                                color: dark
+                                    ? Colors.white
+                                    : const Color(0xFF26351F),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 if (activityBanner != null) ...[
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: activityBanner,
-                    ),
-                  ),
+                  activityBanner!,
                 ],
               ],
             ),

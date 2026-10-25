@@ -206,7 +206,7 @@ class ResourceIconService {
   static Future<List<int>?> _downloadIconBytes(String url) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10)
-      ..userAgent = 'BlockLauncher/26.1alpha2 (shader icon)';
+      ..userAgent = 'BlockLauncher/26.1alpha2.1 (shader icon)';
     try {
       final request = await client.getUrl(Uri.parse(url));
       final response = await request.close();

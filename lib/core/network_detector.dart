@@ -50,7 +50,7 @@ class NetworkDetector {
           responseType: ResponseType.plain,
           headers: const <String, dynamic>{
             'Accept': 'application/json, text/plain, */*',
-            'User-Agent': 'BlockLauncher/26.1alpha2 (network detector)',
+            'User-Agent': 'BlockLauncher/26.1alpha2.1 (network detector)',
           },
         ),
       );

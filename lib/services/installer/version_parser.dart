@@ -378,7 +378,7 @@ Future<File> installerApplyNeoForgeCdnMirror(File installer) async {
     }
     final client = HttpClient()
       ..connectionTimeout = minecraftRequestTimeout
-      ..userAgent = 'BlockLauncher/26.1alpha2 (Minecraft installer)';
+      ..userAgent = 'BlockLauncher/26.1alpha2.1 (Minecraft installer)';
     void abort() => client.close(force: true);
     cancellation?.addListener(abort);
     try {

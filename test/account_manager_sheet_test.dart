@@ -5,6 +5,7 @@ import 'package:baogan_craft_launcher/l10n/app_localizations.dart';
 import 'package:baogan_craft_launcher/pages/accounts/account_management_page.dart';
 import 'package:baogan_craft_launcher/pages/launcher/controllers/auth_controller.dart';
 import 'package:baogan_craft_launcher/services/network/account_manager.dart';
+import 'package:baogan_craft_launcher/services/network/account_models.dart';
 import 'package:baogan_craft_launcher/services/network/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -206,7 +207,12 @@ void main() {
           server = s;
           username = u;
           password = p;
-          return null;
+          return const UserAccount(
+            id: 'thirdParty:uuid-alex',
+            name: 'Alex',
+            uuid: 'uuid-alex',
+            type: AccountType.thirdParty,
+          );
         },
       ),
     );
@@ -237,7 +243,86 @@ void main() {
     expect(password, 'secret');
   });
 
-  testWidgets('account page keeps a 300px skin preview on the right', (
+  testWidgets('third-party login failure stays in dialog with an error', (
+    tester,
+  ) async {
+    var attempts = 0;
+    await tester.pumpWidget(
+      _accountPage(
+        auth,
+        onCreateThirdParty: (_, _, _) async {
+          attempts++;
+          return null;
+        },
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+
+    await tester.tap(find.text('添加账户'));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.widgetWithText(ListTile, '第三方验证'));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'https://example.com/api/yggdrasil');
+    await tester.enterText(fields.at(1), 'alex@example.com');
+    await tester.enterText(fields.at(2), 'wrong-password');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, '登录并保存'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(attempts, 1);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('账号或密码错误，请重试。'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '登录并保存'))
+          .onPressed,
+      isNotNull,
+    );
+    expect(
+      tester.widget<TextField>(fields.at(1)).controller?.text,
+      'alex@example.com',
+    );
+  });
+
+  testWidgets('selected account avatar updates preview image', (tester) async {
+    const avatarUrl = 'https://littleskin.cn/avatar/player/AvatarPlayer';
+    await tester.runAsync(
+      () => auth.rememberAccount(
+        const AuthIdentity(
+          name: 'AvatarPlayer',
+          uuid: 'uuid-avatar',
+          accessToken: '0',
+          userType: 'mojang',
+          javaAgent: r'C:\agent\authlib-injector.jar=https://littleskin.cn/api/yggdrasil',
+        ),
+      ),
+    );
+    await tester.pumpWidget(_accountPage(auth));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    Image? previewImage() {
+      final finder = find.byKey(const ValueKey('account-skin-preview-image'));
+      if (finder.evaluate().isEmpty) return null;
+      return tester.widget<Image>(finder);
+    }
+
+    expect((previewImage()?.image as NetworkImage).url, avatarUrl);
+
+    await tester.tap(find.text('Alex'));
+    await tester.pump();
+    await _waitForBusy(tester);
+    expect(previewImage(), isNull);
+
+    await tester.tap(find.text('AvatarPlayer'));
+    await tester.pump();
+    await _waitForBusy(tester);
+    expect((previewImage()?.image as NetworkImage).url, avatarUrl);
+  });
+
+  testWidgets('account page keeps a proportional skin preview on the right', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 800));
@@ -252,11 +337,21 @@ void main() {
     final previewRect = tester.getRect(
       find.byKey(const ValueKey('account-skin-preview')),
     );
-    expect(previewRect.width, 300);
+    expect(previewRect.width, greaterThan(200));
     expect(previewRect.left, greaterThan(listRect.right));
-    expect(listRect.width, greaterThan(previewRect.width));
+    expect(previewRect.width, closeTo(listRect.width / 2, 1));
     expect(find.text('皮肤预览'), findsOneWidget);
     expect(find.text('开发中'), findsOneWidget);
+    expect(find.text('更换皮肤'), findsOneWidget);
+    expect(find.text('切换模型 (经典/纤细)'), findsOneWidget);
+    expect(800 - previewRect.bottom, greaterThanOrEqualTo(39));
+    final descriptionRect = tester.getRect(
+      find.text('这里将显示当前账号的 Minecraft 皮肤。'),
+    );
+    expect(
+      previewRect.bottom - descriptionRect.bottom,
+      greaterThanOrEqualTo(24),
+    );
     expect(tester.takeException(), isNull);
   });
 }

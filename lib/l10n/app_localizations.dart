@@ -191,7 +191,7 @@ abstract class AppLocalizations {
   /// No description provided for @setupDirectoryExampleTitle.
   ///
   /// In zh, this message translates to:
-  /// **'例如选择 E:\\Games 后，将创建：'**
+  /// **'例如选择游戏目录后，将创建：'**
   String get setupDirectoryExampleTitle;
 
   /// No description provided for @setupInvalidDirectory.
@@ -221,7 +221,7 @@ abstract class AppLocalizations {
   /// No description provided for @setupPathHint.
   ///
   /// In zh, this message translates to:
-  /// **'例如 E:\\Games'**
+  /// **'例如 Games'**
   String get setupPathHint;
 
   /// No description provided for @setupUseThisFolder.
@@ -1103,7 +1103,7 @@ abstract class AppLocalizations {
   /// No description provided for @javaPathExample.
   ///
   /// In zh, this message translates to:
-  /// **'例如 C:\\Program Files\\Java\\jdk-17\\bin\\java.exe'**
+  /// **'例如 Java安装目录\\bin\\java.exe'**
   String get javaPathExample;
 
   /// No description provided for @javaDetecting.

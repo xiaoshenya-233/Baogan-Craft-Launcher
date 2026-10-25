@@ -13,7 +13,7 @@ String joinPath(String base, String part) =>
 
 /// Whether [path] is strictly inside [directory] (never equal to it).
 ///
-/// Windows paths compare case-insensitively so `C:\BGCL` and `c:\bgcl`
+/// Windows paths compare case-insensitively so drive-letter and directory casing
 /// are treated as the same root. Used before any recursive delete.
 bool isPathInside(String path, String directory) {
   var target = p.normalize(p.absolute(path.trim()));

@@ -534,7 +534,7 @@ class McmodTitleService {
 
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 8)
-      ..userAgent = 'BlockLauncher/26.1alpha2 (mcmod title translation)';
+      ..userAgent = 'BlockLauncher/26.1alpha2.1 (mcmod title translation)';
     try {
       for (final query in queries) {
         final lookup = await _requestChineseQuery(client, query);

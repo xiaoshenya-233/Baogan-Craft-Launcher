@@ -7,7 +7,7 @@ import '../../../widgets/launcher/launcher_common.dart';
 /// Public metadata shown in the about dialog.
 const String launcherRepoUrl =
     'https://github.com/xiaoshenya-233/Baogan-Craft-Launcher';
-const String launcherVersion = '26.1alpha2';
+const String launcherVersion = '26.1Alpha2.1';
 
 class _CreditEntry {
   const _CreditEntry(this.name, this.description, this.icon);

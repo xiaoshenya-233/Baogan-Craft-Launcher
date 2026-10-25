@@ -30,7 +30,7 @@
     "description": "Title of the first-launch setup card and of the folder picker dialog."
   },
   "setupSubtitle": "首次启动必须完成目录设置，配置完成前不会创建日志、数据库或缓存文件。",
-  "setupDirectoryExampleTitle": "例如选择 E:\\Games 后，将创建：",
+  "setupDirectoryExampleTitle": "例如选择游戏目录后，将创建：",
   "setupInvalidDirectory": "必须选择一个有效的启动器根目录才能继续。",
   "setupCreateFailed": "无法创建启动器目录：{error}",
   "@setupCreateFailed": {
@@ -49,7 +49,7 @@
       }
     }
   },
-  "setupPathHint": "例如 E:\\Games",
+  "setupPathHint": "例如 Games",
   "setupUseThisFolder": "使用此目录",
   "setupSelectFolder": "选择根目录",
   "setupCreatingFolder": "正在创建目录…",
@@ -345,7 +345,7 @@
   "javaRemoveTooltip": "从列表移除（不会删除本地文件）",
   "javaDialogTitle": "手动添加 Java 路径",
   "javaDialogHint": "填写 java.exe 的完整路径；仅加入列表，不会自动设为默认。",
-  "javaPathExample": "例如 C:\\Program Files\\Java\\jdk-17\\bin\\java.exe",
+  "javaPathExample": "例如 Java安装目录\\bin\\java.exe",
   "javaDetecting": "检测中…",
   "actionAdd": "添加",
   "authModeLocalProfile": "本地档案",

@@ -487,7 +487,7 @@ class CurseForgeDownloader {
                sendTimeout: const Duration(seconds: 20),
                headers: const {
                  'Accept': 'application/json',
-                 'User-Agent': 'BlockLauncher/26.1alpha2 (modpack resolver)',
+                 'User-Agent': 'BlockLauncher/26.1alpha2.1 (modpack resolver)',
                },
              ),
            ),

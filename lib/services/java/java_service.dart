@@ -209,7 +209,6 @@ class JavaRuntimeService {
     throw FormatException('未找到可用的 Java 运行时。$majorHint');
   }
 
-
   Future<JavaRuntime?> runtimeForPath(
     String path, {
     Iterable<JavaRuntime> known = const [],
@@ -238,10 +237,11 @@ class JavaRuntimeService {
     final environment = Platform.environment;
     final separator = Platform.pathSeparator;
     if (Platform.isWindows) {
-      final programFiles = environment['ProgramFiles'] ?? r'C:\Program Files';
-      final programFilesX86 = environment['ProgramFiles(x86)'];
-      final localAppData = environment['LOCALAPPDATA'];
-      final userProfile = environment['USERPROFILE'];
+      final systemDrive = environment['SystemDrive']?.trim();
+      final programFiles = environment['ProgramFiles']?.trim();
+      final programFilesX86 = environment['ProgramFiles(x86)']?.trim();
+      final localAppData = environment['LOCALAPPDATA']?.trim();
+      final userProfile = environment['USERPROFILE']?.trim();
       final roots = <String>[];
       const vendors = <String>[
         'Java',
@@ -257,17 +257,25 @@ class JavaRuntimeService {
         'SapMachine',
         'GraalVM',
       ];
-      for (final vendor in vendors) {
-        roots.add('$programFiles$separator$vendor');
-        if (programFilesX86 != null) {
-          roots.add('$programFilesX86$separator$vendor');
-        }
-        if (localAppData != null) {
-          roots.add('$localAppData${separator}Programs$separator$vendor');
+      if (programFiles != null ||
+          programFilesX86 != null ||
+          localAppData != null) {
+        for (final vendor in vendors) {
+          if (programFiles != null && programFiles.isNotEmpty) {
+            roots.add('$programFiles$separator$vendor');
+          }
+          if (programFilesX86 != null && programFilesX86.isNotEmpty) {
+            roots.add('$programFilesX86$separator$vendor');
+          }
+          if (localAppData != null && localAppData.isNotEmpty) {
+            roots.add('$localAppData${separator}Programs$separator$vendor');
+          }
         }
       }
-      roots.add(r'C:\Java');
-      if (userProfile != null) {
+      if (systemDrive != null && systemDrive.isNotEmpty) {
+        roots.add('$systemDrive${separator}Java');
+      }
+      if (userProfile != null && userProfile.isNotEmpty) {
         roots.add('$userProfile$separator.jdks');
         for (final app in const [
           'openjdk',

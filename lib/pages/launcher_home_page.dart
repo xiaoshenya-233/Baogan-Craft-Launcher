@@ -657,7 +657,6 @@ class _LauncherHomePageState extends State<LauncherHomePage> {
                   ),
                   isDark: usesDarkPalette,
                   isMaximized: _shell.isWindowMaximized,
-                  onStartDrag: () => _runWindowCommand('startDrag'),
                   onToggleMaximize: () => _runWindowCommand('toggleMaximize'),
                   onMinimize: () => _runWindowCommand('minimize'),
                   onClose: () => _runWindowCommand('close'),

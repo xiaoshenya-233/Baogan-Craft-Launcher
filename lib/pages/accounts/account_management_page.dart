@@ -117,20 +117,15 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
         await _runCreator(() => widget.onCreateOffline(name));
         return;
       case AccountType.thirdParty:
-        final credentials = await showDialog<_ThirdPartyCredentials>(
+        final account = await showDialog<UserAccount>(
           context: context,
           builder: (_) => _ThirdPartyAccountDialog(
             initialServer: widget.auth.thirdPartyAuthServer,
+            onSubmit: widget.onCreateThirdParty,
           ),
         );
-        if (!mounted || credentials == null) return;
-        await _runCreator(
-          () => widget.onCreateThirdParty(
-            credentials.server,
-            credentials.username,
-            credentials.password,
-          ),
-        );
+        if (!mounted || account == null) return;
+        await _applyCreatedAccount(account);
         return;
       case AccountType.microsoft:
         await _runCreator(widget.onCreateMicrosoft);
@@ -174,6 +169,11 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
     } finally {
       if (mounted) setState(() => _adding = false);
     }
+  }
+
+  Future<void> _applyCreatedAccount(UserAccount account) async {
+    await widget.auth.updateMode(account.type.authMode);
+    if (mounted) _showMessage('已添加账号：${account.name}');
   }
 
   Future<void> _editName(UserAccount account) async {
@@ -242,6 +242,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
       builder: (context, _) {
         final accounts = widget.auth.accounts;
         final currentId = widget.auth.currentAccount?.id;
+        final currentAccount = widget.auth.currentAccount;
         return LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 760;
@@ -329,6 +330,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Expanded(
+                                  flex: 2,
                                   child: _buildListPanel(
                                     accounts,
                                     currentId: currentId,
@@ -340,9 +342,18 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                                 ),
                                 if (showPreview) ...[
                                   const SizedBox(width: 18),
-                                  SizedBox(
-                                    width: 300,
-                                    child: _buildSkinPreview(theme, scheme),
+                                  Expanded(
+                                    flex: 1,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 40,
+                                      ),
+                                      child: _buildSkinPreview(
+                                        theme,
+                                        scheme,
+                                        currentAccount,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ],
@@ -410,7 +421,39 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
     );
   }
 
-  Widget _buildSkinPreview(ThemeData theme, ColorScheme scheme) {
+  Widget _buildSkinPreview(
+    ThemeData theme,
+    ColorScheme scheme,
+    UserAccount? account,
+  ) {
+    final avatarUrl = account?.effectiveAvatarUrl;
+    final fallback = Container(
+      width: 104,
+      height: 104,
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+      ),
+      alignment: Alignment.center,
+      child: Icon(Icons.person_rounded, size: 64, color: scheme.primary),
+    );
+    final avatar = avatarUrl == null || avatarUrl.isEmpty
+        ? fallback
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Image.network(
+              avatarUrl,
+              key: const ValueKey('account-skin-preview-image'),
+              width: 104,
+              height: 104,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.none,
+              errorBuilder: (_, _, _) => fallback,
+              loadingBuilder: (context, child, progress) =>
+                  progress == null ? child : fallback,
+            ),
+          );
     return Material(
       key: const ValueKey('account-skin-preview'),
       color: scheme.surfaceContainerHighest.withValues(alpha: 0.28),
@@ -420,48 +463,44 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
       ),
       clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Column(
+          key: ValueKey<String>(
+            'account-skin-preview-body-${account?.id ?? 'none'}-'
+            '${avatarUrl ?? 'none'}',
+          ),
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 104,
-                      height: 104,
-                      decoration: BoxDecoration(
-                        color: scheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(
-                          color: scheme.primary.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.person_rounded,
-                        size: 64,
-                        color: scheme.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '皮肤预览',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '开发中',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+            avatar,
+            const SizedBox(height: 14),
+            Text(
+              '皮肤预览',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '开发中',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: () => _showMessage('功能开发中'),
+                  child: const Text('更换皮肤'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _showMessage('功能开发中'),
+                  child: const Text('切换模型 (经典/纤细)'),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Text(
@@ -642,33 +681,48 @@ class _AccountAvatar extends StatelessWidget {
     final initial = trimmed.isEmpty
         ? '?'
         : trimmed.substring(0, 1).toUpperCase();
+    final fallback = Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [background.withValues(alpha: 0.82), background],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+    final avatarUrl = account.effectiveAvatarUrl;
+    final avatar = avatarUrl == null || avatarUrl.isEmpty
+        ? fallback
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              avatarUrl,
+              width: 42,
+              height: 42,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.none,
+              errorBuilder: (_, _, _) => fallback,
+              loadingBuilder: (context, child, progress) =>
+                  progress == null ? child : fallback,
+            ),
+          );
     return SizedBox(
       width: 42,
       height: 42,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [background.withValues(alpha: 0.82), background],
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                initial,
-                style: TextStyle(
-                  color: foreground,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
+          Positioned.fill(child: avatar),
           Positioned(
             right: -2,
             bottom: -2,
@@ -774,22 +828,14 @@ class _OfflineNameDialogState extends State<_OfflineNameDialog> {
   }
 }
 
-class _ThirdPartyCredentials {
-  const _ThirdPartyCredentials({
-    required this.server,
-    required this.username,
-    required this.password,
+class _ThirdPartyAccountDialog extends StatefulWidget {
+  const _ThirdPartyAccountDialog({
+    required this.initialServer,
+    required this.onSubmit,
   });
 
-  final String server;
-  final String username;
-  final String password;
-}
-
-class _ThirdPartyAccountDialog extends StatefulWidget {
-  const _ThirdPartyAccountDialog({required this.initialServer});
-
   final String initialServer;
+  final ThirdPartyAccountCreator onSubmit;
 
   @override
   State<_ThirdPartyAccountDialog> createState() =>
@@ -800,6 +846,8 @@ class _ThirdPartyAccountDialogState extends State<_ThirdPartyAccountDialog> {
   late final TextEditingController _server;
   late final TextEditingController _username;
   late final TextEditingController _password;
+  bool _submitting = false;
+  String? _error;
 
   @override
   void initState() {
@@ -822,16 +870,45 @@ class _ThirdPartyAccountDialogState extends State<_ThirdPartyAccountDialog> {
       _username.text.trim().isNotEmpty &&
       _password.text.isNotEmpty;
 
-  void _submit() {
-    if (!_valid) return;
-    Navigator.pop(
-      context,
-      _ThirdPartyCredentials(
-        server: _server.text.trim(),
-        username: _username.text.trim(),
-        password: _password.text,
-      ),
-    );
+  void _onFieldChanged(String _) {
+    setState(() => _error = null);
+  }
+
+  Future<void> _submit() async {
+    if (!_valid || _submitting) return;
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final account = await widget.onSubmit(
+        _server.text.trim(),
+        _username.text.trim(),
+        _password.text,
+      );
+      if (!mounted) return;
+      if (account == null) {
+        setState(() {
+          _submitting = false;
+          _error = '账号或密码错误，请重试。';
+        });
+        return;
+      }
+      Navigator.pop(context, account);
+    } on Object catch (error) {
+      if (!mounted) return;
+      final message = error.toString();
+      setState(() {
+        _submitting = false;
+        _error =
+            message.contains('HTTP 401') ||
+                message.contains('HTTP 403') ||
+                message.contains('密码') ||
+                message.contains('credentials')
+            ? '账号或密码错误，请重试。'
+            : '登录失败，请检查网络后重试。';
+      });
+    }
   }
 
   @override
@@ -847,9 +924,10 @@ class _ThirdPartyAccountDialogState extends State<_ThirdPartyAccountDialog> {
             children: [
               TextField(
                 controller: _server,
+                enabled: !_submitting,
                 keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.next,
-                onChanged: (_) => setState(() {}),
+                onChanged: _onFieldChanged,
                 decoration: const InputDecoration(
                   labelText: '服务器地址',
                   hintText: 'https://littleskin.cn/api/yggdrasil',
@@ -858,20 +936,33 @@ class _ThirdPartyAccountDialogState extends State<_ThirdPartyAccountDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _username,
+                enabled: !_submitting,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
-                onChanged: (_) => setState(() {}),
+                onChanged: _onFieldChanged,
                 decoration: const InputDecoration(labelText: '用户名 / 邮箱'),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _password,
+                enabled: !_submitting,
                 obscureText: true,
                 textInputAction: TextInputAction.done,
-                onChanged: (_) => setState(() {}),
+                onChanged: _onFieldChanged,
                 onSubmitted: (_) => _submit(),
                 decoration: const InputDecoration(labelText: '密码'),
               ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _error!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               Text(
                 '账号信息会立即保存到账号列表，下次启动无需重新填写。',
@@ -887,12 +978,18 @@ class _ThirdPartyAccountDialogState extends State<_ThirdPartyAccountDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _submitting ? null : () => Navigator.pop(context),
           child: Text(l10n.actionCancel),
         ),
         FilledButton(
-          onPressed: _valid ? _submit : null,
-          child: const Text('登录并保存'),
+          onPressed: _valid && !_submitting ? _submit : null,
+          child: _submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('登录并保存'),
         ),
       ],
     );

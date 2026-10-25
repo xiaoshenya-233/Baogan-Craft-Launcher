@@ -43,6 +43,7 @@ class UserAccount {
     this.accessToken = '',
     this.refreshToken = '',
     this.javaAgent,
+    this.avatarUrl,
   });
 
   /// Stable identifier, e.g. `microsoft:<uuid>`.
@@ -60,6 +61,58 @@ class UserAccount {
   /// authlib-injector argument kept for third-party accounts.
   final String? javaAgent;
 
+  /// Optional avatar image URL (Yggdrasil providers may expose one).
+  final String? avatarUrl;
+
+  /// Avatar URL to render, including a fallback for older third-party accounts
+  /// that were saved before custom avatar support was added.
+  String? get effectiveAvatarUrl {
+    final server = _thirdPartyServer;
+    if (type == AccountType.thirdParty && server != null) {
+      final parsedServer = Uri.tryParse(server);
+      if (parsedServer != null &&
+          parsedServer.path.endsWith('/api/yggdrasil')) {
+        // Blessing Skin (LittleSkin) renders avatars by player name. This also
+        // repairs older stored URLs such as `/api/yggdrasil/avatar/<uuid>`.
+        return thirdPartyAvatarUrl(server, uuid, playerName: name);
+      }
+    }
+    final explicit = avatarUrl?.trim();
+    if (explicit != null && explicit.isNotEmpty) {
+      final parsed = Uri.tryParse(explicit);
+      const marker = '/api/yggdrasil/avatar/';
+      if (parsed != null && parsed.hasScheme) {
+        final index = parsed.path.indexOf(marker);
+        if (index >= 0) {
+          return '${parsed.scheme}://${parsed.authority}/avatar/'
+              '${parsed.path.substring(index + marker.length)}';
+        }
+      }
+      return explicit;
+    }
+    if (type != AccountType.thirdParty || server == null) return null;
+    return thirdPartyAvatarUrl(server, uuid, playerName: name);
+  }
+
+  String? get _thirdPartyServer {
+    if (type != AccountType.thirdParty) return null;
+    final agent = javaAgent?.trim();
+    if (agent == null || agent.isEmpty) return null;
+    final separator = agent.indexOf('=');
+    if (separator < 0 || separator + 1 >= agent.length) return null;
+    final server = agent
+        .substring(separator + 1)
+        .trim()
+        .replaceFirst(RegExp(r'/$'), '');
+    final parsed = Uri.tryParse(server);
+    if (parsed == null ||
+        !parsed.hasScheme ||
+        (parsed.scheme != 'http' && parsed.scheme != 'https')) {
+      return null;
+    }
+    return server;
+  }
+
   bool get hasToken => accessToken.trim().isNotEmpty;
 
   bool get isOffline => type == AccountType.offline;
@@ -75,6 +128,8 @@ class UserAccount {
     'type': type.name,
     if (javaAgent != null && javaAgent!.trim().isNotEmpty)
       'javaAgent': javaAgent,
+    if (avatarUrl != null && avatarUrl!.trim().isNotEmpty)
+      'avatarUrl': avatarUrl,
   };
 
   static UserAccount? fromJson(Object? raw) {
@@ -86,6 +141,7 @@ class UserAccount {
     if (name is! String || name.trim().isEmpty) return null;
     if (uuid is! String || uuid.trim().isEmpty) return null;
     final javaAgent = raw['javaAgent'];
+    final avatarUrl = raw['avatarUrl'];
     return UserAccount(
       id: id.trim(),
       name: name.trim(),
@@ -93,6 +149,9 @@ class UserAccount {
       type: AccountTypeInfo.fromName(raw['type'] as String?),
       javaAgent: javaAgent is String && javaAgent.trim().isNotEmpty
           ? javaAgent.trim()
+          : null,
+      avatarUrl: avatarUrl is String && avatarUrl.trim().isNotEmpty
+          ? avatarUrl.trim()
           : null,
     );
   }
@@ -103,6 +162,7 @@ class UserAccount {
     String? accessToken,
     String? refreshToken,
     String? javaAgent,
+    String? avatarUrl,
   }) => UserAccount(
     id: id,
     name: name ?? this.name,
@@ -111,6 +171,7 @@ class UserAccount {
     accessToken: accessToken ?? this.accessToken,
     refreshToken: refreshToken ?? this.refreshToken,
     javaAgent: javaAgent ?? this.javaAgent,
+    avatarUrl: avatarUrl ?? this.avatarUrl,
   );
 
   /// Builds the identity passed to the launcher for this account.
@@ -135,6 +196,7 @@ class UserAccount {
       uuid: identity.uuid,
       type: type,
       javaAgent: identity.javaAgent,
+      avatarUrl: identity.avatarUrl,
     );
   }
 }

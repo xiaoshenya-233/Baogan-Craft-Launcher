@@ -2,13 +2,13 @@
 
 基于 Flutter 的 Minecraft 风格启动器界面原型，适配桌面与窄屏布局。包含主页、导航、游戏版本选择、启动状态演示和冒险灵感卡片。界面默认使用思源黑体（Source Han Sans SC），字体文件内置于 `assets/fonts/SourceHanSansSC-Regular.otf`。
 
-当前版本：**26.1alpha2**（Hotfix）。Flutter 包版本为 `26.1.2+1`，Windows 资源版本为 `26.1.2.0`。
+当前版本：**26.1Alpha2.1**（Hotfix）。Flutter 包版本为 `26.1.2+2`，Windows 资源版本为 `26.1.2.1`。
 
 ## 对于中国大陆地区暂停客户端下载功能通告
 为响应相关法律法规，暂时不提供客户端下载服务，如果想使用此功能，请确保你在国外网络环境下运行。
 
 ## 插件系统Github仓库
-我们在26.1Alpha2中新增插件功能，插件将由https://github.com/xiaoshenya-233/Baogan-Craft-Launcher-Plugin-Center提供
+我们在26.1Alpha2.1中新增插件功能，插件将由https://github.com/xiaoshenya-233/Baogan-Craft-Launcher-Plugin-Center提供
 
 ## 运行
 

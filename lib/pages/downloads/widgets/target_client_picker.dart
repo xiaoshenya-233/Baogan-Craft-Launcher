@@ -132,13 +132,10 @@ class _TargetClientPickerState extends State<TargetClientPicker> {
         ? null
         : _comparablePath(preferredPath);
     if (preferredKey != null) {
-      debugPrint('[Picker] 传入的首选路径: $preferredPath');
       for (final client in widget.clients) {
         final isMatch =
             _comparablePath(client.path) == preferredKey &&
             _isCompatible(client);
-        debugPrint('[Picker] 正在比对的客户端路径: ${client.path}');
-        debugPrint('[Picker] 是否匹配成功: $isMatch');
         if (isMatch) return client;
       }
     }

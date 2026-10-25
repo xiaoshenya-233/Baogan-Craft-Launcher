@@ -58,7 +58,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get setupDirectoryExampleTitle =>
-      'For example, choosing E:\\Games creates:';
+      'For example, choosing a game folder creates:';
 
   @override
   String get setupInvalidDirectory =>
@@ -79,7 +79,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get setupPathHint => 'e.g. E:\\Games';
+  String get setupPathHint => 'e.g. Games';
 
   @override
   String get setupUseThisFolder => 'Use this folder';
@@ -591,8 +591,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter the full path to java.exe; this only adds it to the list and does not make it the default.';
 
   @override
-  String get javaPathExample =>
-      'e.g. C:\\Program Files\\Java\\jdk-17\\bin\\java.exe';
+  String get javaPathExample => 'e.g. Java installation\\bin\\java.exe';
 
   @override
   String get javaDetecting => 'Checking…';

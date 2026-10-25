@@ -630,7 +630,7 @@ class ModpackInstaller {
       }
       final client = HttpClient()
         ..connectionTimeout = const Duration(seconds: 15)
-        ..userAgent = 'BlockLauncher/26.1alpha2 (modpack installer)';
+        ..userAgent = 'BlockLauncher/26.1alpha2.1 (modpack installer)';
       IOSink? sink;
       try {
         final uri = Uri.tryParse(download);
